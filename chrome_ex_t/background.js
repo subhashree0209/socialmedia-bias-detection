@@ -1,31 +1,31 @@
 // Background service worker for Reddit Bias Detector
 
 // Initialize extension on install
-chrome.runtime.onInstalled.addListener((details) => {
-    if (details.reason === 'install') {
-      console.log('Reddit Bias Detector installed');
+chrome.runtime.onInstalled.addListener((details) => {                           //Setting up listener to wait for messages
+    if (details.reason === 'install') {                                         //Setting up default config for users as this is the first time it is installed
+      console.log('Reddit Bias Detector installed');    
       
-      // Set default settings
       chrome.storage.sync.set({
         enabled: true,
         sensitivity: 'medium',
         showNotifications: true
       });
-      
-      // Open welcome page (optional)
+
       // chrome.tabs.create({ url: 'welcome.html' });
     } else if (details.reason === 'update') {
       console.log('Reddit Bias Detector updated');
+    } else if (details.reason === 'chrome_update') { 
+        console.log('Chrome Browser updated');
     }
   });
   
   // Listen for messages from content script or popup
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'analyzeBias') {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {     //Setting up listener to wait for messages
+    if (request.action === 'analyzeBias') {                                     //Calls function analyzeBias from content.js 
       // Perform more complex bias analysis if needed
       const result = performAdvancedAnalysis(request.text);
-      sendResponse({ result });
-      return true;
+      sendResponse({ result });                                                // Sends results back to user
+      return true;                                                             //Keeps connection open
     }
     
     if (request.action === 'getSettings') {
@@ -36,7 +36,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
     
     if (request.action === 'updateSettings') {
-      chrome.storage.sync.set(request.settings, () => {
+      chrome.storage.sync.set(request.settings, () => {                       //request.settings is the new settings to save
         sendResponse({ success: true });
       });
       return true;
@@ -50,11 +50,11 @@ chrome.runtime.onInstalled.addListener((details) => {
     }
   });
   
-  // Advanced analysis function (can be expanded with ML or API calls)
+  // Advanced analysis function: NEED BACKEND, probably need to put analysis in here cos it a lot of computation
   function performAdvancedAnalysis(text) {
     const patterns = {
-      strawman: /(?:nobody is saying|who said|no one thinks)/gi,
-      appeal_to_emotion: /(?:think of the|imagine if|how would you feel)/gi,
+      strawman: /(?:nobody is saying|who said|no one thinks)/gi,                      //defining fallacy patterns
+      appeal_to_emotion: /(?:think of the|imagine if|how would you feel)/gi,          //g-global i-Case-Sensitive
       false_dichotomy: /(?:either.*or|only two|must choose)/gi,
       ad_hominem: /(?:idiot|stupid|moron|ignorant)/gi,
       slippery_slope: /(?:next thing|leads to|where does it end)/gi
@@ -62,9 +62,9 @@ chrome.runtime.onInstalled.addListener((details) => {
   
     const detected = [];
     
-    for (const [type, regex] of Object.entries(patterns)) {
-      if (regex.test(text)) {
-        detected.push(type);
+    for (const [type, regex] of Object.entries(patterns)) {     //type = strawman, regex = (?:nobody....)
+      if (regex.test(text)) {                                   //tests the text to see if it matches any of the patterns
+        detected.push(type);                                    // pushes the type
       }
     }
   
@@ -93,24 +93,6 @@ chrome.runtime.onInstalled.addListener((details) => {
     });
   }
   
-  // Update badge with bias count (optional)
-  function updateBadge(count) {
-    if (count > 0) {
-      chrome.action.setBadgeText({ text: count.toString() });
-      chrome.action.setBadgeBackgroundColor({ color: '#dc3545' });
-    } else {
-      chrome.action.setBadgeText({ text: '' });
-    }
-  }
-  
-  // Listen for tab updates to reset badge
-  chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-    if (changeInfo.status === 'complete' && tab.url && tab.url.includes('reddit.com')) {
-      // Reset badge when navigating to new Reddit page
-      chrome.action.setBadgeText({ tabId, text: '' });
-    }
-  });
-  
   // Context menu for quick actions (optional)
   chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
@@ -120,6 +102,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     });
   });
   
+  //Still needs to be fixed
   chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === 'analyzeBias' && info.selectionText) {
       const result = performAdvancedAnalysis(info.selectionText);

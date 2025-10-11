@@ -5,12 +5,16 @@
   "version": "1.0",
   "description": "Detects potential bias in Reddit posts and comments",
   "permissions": [
+    "contextMenus",
     "activeTab",
     "storage"
   ],
   "host_permissions": [
     "*://*.reddit.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"  
+  },
   "content_scripts": [
     {
       "matches": ["*://*.reddit.com/*"],

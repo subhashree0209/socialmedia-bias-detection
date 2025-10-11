@@ -10,10 +10,9 @@ if (!window.location.hostname.includes('reddit.com')) {
   // Global state
   let isEnabled = true;
   
-  // Create and inject toggle button into Reddit page
+  // Create toggle button
   function createToggleButton() {
-    // Check if button already exists
-    if (document.getElementById('bias-detector-toggle')) return;
+    if (document.getElementById('bias-detector-toggle')) return;                            // Check if button already exists
   
     const toggleContainer = document.createElement('div');
     toggleContainer.id = 'bias-detector-toggle';
@@ -45,6 +44,26 @@ if (!window.location.hostname.includes('reddit.com')) {
       }
     });
   }
+
+  function createDashboardButton() {
+    if (document.getElementById('dashboard-btn')) return;
+
+    const btnCon = document.createElement('div');
+    btnCon.id = 'dashboard-btn';
+    btnCon.style.position = "fixed";
+    btnCon.style.bottom = '20px';
+    btnCon.style.right = '20px';
+    btnCon.style.zIndex = '9999';
+
+    btnCon.innerHTML = '<button style="padding: 10px 16px 10px 16 px; background-color: #ff4500; color: white; border-radius:6px; cursor:pointer;"> EchoBreak </button>'
+
+    document.body.appendChild(btnCon)
+
+    const button = btnCon.querySelector('button')
+    button.addEventListener('click',() => {
+      window.open('https://127.0.0.1:8501', "_blank");
+    })
+  }
   
   // Get initial state from storage
   chrome.storage.sync.get(['biasDetectionEnabled'], (result) => {
@@ -56,6 +75,7 @@ if (!window.location.hostname.includes('reddit.com')) {
       clearInterval(waitForBody);
       
       createToggleButton();
+      createDashboardButton();
       
       // Update checkbox state
       const checkbox = document.getElementById('biasToggleCheckbox');
@@ -69,7 +89,8 @@ if (!window.location.hostname.includes('reddit.com')) {
     }
   }, 100);
 });
-  
+ 
+  //NEED BACKEND
   // Bias indicators - you can expand this
   const biasKeywords = {
     emotional: ['always', 'never', 'everyone', 'nobody', 'obviously', 'clearly'],
@@ -77,14 +98,15 @@ if (!window.location.hostname.includes('reddit.com')) {
     absolute: ['all', 'every', 'none', 'completely', 'totally']
   };
   
+  //NEED BACKEND
   function analyzeBias(text) {
-    const lower = text.toLowerCase();
+    const lowerText = text.toLowerCase();
     let biasScore = 0;
     let detectedTypes = [];
   
     for (const [type, keywords] of Object.entries(biasKeywords)) {
       for (const keyword of keywords) {
-        if (lower.includes(keyword)) {
+        if (lowerText.includes(keyword)) {
           biasScore++;
           if (!detectedTypes.includes(type)) {
             detectedTypes.push(type);
@@ -121,7 +143,7 @@ if (!window.location.hostname.includes('reddit.com')) {
     if (!isEnabled) return; // Don't scan if disabled
     
     // Reddit post selectors (works for both old and new Reddit)
-    const posts = document.querySelectorAll('[data-test-id="post-content"], .entry .usertext-body, shreddit-post');
+    const posts = document.querySelectorAll('[data-testid="post-content"], .entry .usertext-body, shreddit-post');
     
     posts.forEach(post => {
       const textContent = post.textContent || post.innerText;
@@ -129,18 +151,6 @@ if (!window.location.hostname.includes('reddit.com')) {
         const biasData = analyzeBias(textContent);
         if (biasData.score > 0) {
           addBiasIndicator(post, biasData);
-        }
-      }
-    });
-  
-    // Comments
-    const comments = document.querySelectorAll('.comment .usertext-body, [data-testid="comment"]');
-    comments.forEach(comment => {
-      const textContent = comment.textContent || comment.innerText;
-      if (textContent && textContent.length > 30) {
-        const biasData = analyzeBias(textContent);
-        if (biasData.score > 0) {
-          addBiasIndicator(comment, biasData);
         }
       }
     });
