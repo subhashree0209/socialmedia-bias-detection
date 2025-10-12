@@ -9,6 +9,12 @@ if (!window.location.hostname.includes('reddit.com')) {
   
   // Global state
   let isEnabled = true;
+
+  function isPostCommentsPage(href = location.href) {
+  // Matches: /r/<sub>/comments/<postId>/...
+  return /^https?:\/\/(www\.)?reddit\.com\/r\/[^/]+\/comments\/[a-z0-9]+/i.test(href);
+  }
+
   
   // Create toggle button
   function createToggleButton() {
@@ -220,18 +226,12 @@ if (!window.location.hostname.includes('reddit.com')) {
 
 
 
-
-
-
-
-  // === RELATED POSTS FEATURE ===
-
-// Function to inject "Find Related Posts" button and hover panel
+// === RELATED POSTS FEATURE  ===
 function addRelatedPostsButton() {
-  const nav = document.querySelector("header"); // Reddit’s top nav bar
-  if (!nav || document.getElementById("find-related-btn")) return;
+  // Prevent duplicates
+  if (document.getElementById("find-related-btn")) return;
 
-  // Create button
+  // Create floating button (position set via CSS on #find-related-btn)
   const btn = document.createElement("button");
   btn.id = "find-related-btn";
   btn.textContent = "Find Related Posts";
@@ -243,64 +243,132 @@ function addRelatedPostsButton() {
   panel.className = "related-panel";
   panel.innerHTML = `<p class="loading">Loading related posts...</p>`;
 
-  // Append both elements
-  nav.appendChild(btn);
+  // Mount to BODY (NOT the header)
+  document.body.appendChild(btn);
   document.body.appendChild(panel);
 
-  // --- Placeholder: fetch top 5 related posts ---
+  // --- Placeholder: fetch top 5 related posts (replace with your backend) ---  #need to write the endpoints
   async function fetchRelatedPosts() {
-    // Later replace this with your backend call, e.g.:
-    // const res = await fetch(`https://your-backend.com/related?post_id=${postId}`);
-    // const posts = await res.json();
     return [
-      { title: "Neutral take: Policy implications overview", url: "https://www.reddit.com/r/example1", bias: "neutral" },
-      { title: "Opposite view: Debate on policy", url: "https://www.reddit.com/r/example2", bias: "opposite" },
-      { title: "Neutral: Historical background context", url: "https://www.reddit.com/r/example3", bias: "neutral" },
-      { title: "Opposite stance: Alternative interpretation", url: "https://www.reddit.com/r/example4", bias: "opposite" },
-      { title: "Neutral perspective: Fact-check summary", url: "https://www.reddit.com/r/example5", bias: "neutral" },
+      { title: "Policy implications overview", url: "https://www.reddit.com/r/example1", bias: "neutral" },
+      { title: "Debate on policy",            url: "https://www.reddit.com/r/example2", bias: "opposite" },
+      { title: "Historical background context of policies in the US constitution and their effects",     url: "https://www.reddit.com/r/example3", bias: "neutral" },
+      { title: "Why this policy works",url: "https://www.reddit.com/r/example4", bias: "opposite" },
+      { title: "Global policies and the influence of US politics on global markets",    url: "https://www.reddit.com/r/example5", bias: "neutral" }
     ];
   }
 
-  // --- Populate panel content ---
   async function populatePanel() {
     const posts = await fetchRelatedPosts();
     panel.innerHTML = `
       <h4>Related Posts</h4>
-      ${posts
-        .map(
-          (p) => `
-        <a href="${p.url}" target="_blank" class="related-item ${p.bias}">
-          <span class="related-title">${p.title}</span>
+      ${posts.map(p => `
+        <a href="${p.url}" target="_blank" class="related-item ${p.bias}" rel="noopener">
+          <span class="related-title" title="${p.title}">${p.title}</span>
           <span class="related-bias">${p.bias.toUpperCase()}</span>
-        </a>`
-        )
-        .join("")}
+        </a>
+      `).join("")}
     `;
   }
 
-  // --- Hover behavior with animation ---
-  btn.addEventListener("mouseenter", async () => {
-    await populatePanel();
-    const rect = btn.getBoundingClientRect();
-    panel.style.top = `${rect.bottom + 8}px`;
-    panel.style.left = `${rect.left}px`;
-    panel.classList.add("show");
-  });
+btn.addEventListener("mouseenter", async () => {
+  await populatePanel();
 
-  // Hide when leaving button (with delay to allow moving to panel)
+  const rect = btn.getBoundingClientRect();
+
+  // Compute live geometry — data-driven, not hardcoded
+  const panelWidth = panel.offsetWidth;
+  const panelHeight = panel.offsetHeight;
+  const viewportWidth = window.innerWidth;
+
+  // Align left edge of panel slightly left of button’s right edge,
+  // but clamp within viewport
+  let left = rect.right - panelWidth;  // 20px small visual gap
+  left = Math.max(12, Math.min(left, viewportWidth - panelWidth - 12));
+
+  // Position below the button
+  const top = rect.bottom + 8;
+
+  panel.style.position = "fixed";
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.classList.add("show");
+});
+
+
+  // Hide when leaving button (allow time to move into panel)
   btn.addEventListener("mouseleave", () => {
     setTimeout(() => {
-      if (!panel.matches(":hover")) {
-        panel.classList.remove("show");
-      }
+      if (!panel.matches(":hover")) panel.classList.remove("show");
     }, 150);
   });
 
   // Hide when leaving the panel itself
-  panel.addEventListener("mouseleave", () => {
-    panel.classList.remove("show");
-  });
+  panel.addEventListener("mouseleave", () => panel.classList.remove("show"));
+
+  // If window is resized, just hide the panel (it will re-open in the right place)
+  window.addEventListener("resize", () => panel.classList.remove("show"));
 }
 
-// Wait for Reddit header to load, then inject
-setTimeout(addRelatedPostsButton, 3000);
+
+// === Find Related Posts button only appears when user opens a bias-tagged Reddit post ===
+
+// Helper to remove any existing button/panel cleanly
+function removeRelatedPostsButton() {
+  document.getElementById("find-related-btn")?.remove();
+  document.getElementById("related-posts-panel")?.remove();
+}
+
+// Check whether we’re currently viewing a *bias-tagged post*
+function checkForBiasTaggedPost() {
+  // Only on a single-post comments page
+  if (!isPostCommentsPage()) {
+    removeRelatedPostsButton();
+    return;
+  }
+
+  // Find the opened post’s main container
+  const mainPost =
+    document.querySelector("shreddit-post") ||
+    document.querySelector('[data-test-id="post-content"]');
+
+  if (!mainPost) {
+    removeRelatedPostsButton();
+    return;
+  }
+
+  // Require a bias indicator inside THIS post
+  const hasBias = !!mainPost.querySelector(".bias-indicator");
+
+  if (hasBias) {
+    if (!document.getElementById("find-related-btn")) {
+      addRelatedPostsButton();
+    }
+  } else {
+    removeRelatedPostsButton();
+
+    // Watch this post for a bias indicator appearing later
+    const observer = new MutationObserver(() => {
+      if (mainPost.querySelector(".bias-indicator")) {
+        addRelatedPostsButton();
+        observer.disconnect();
+      }
+    });
+    observer.observe(mainPost, { childList: true, subtree: true });
+  }
+}
+
+
+// Run initial check after bias scan finishes
+setTimeout(checkForBiasTaggedPost, 2000);
+
+// Watch for client-side navigation (Reddit SPA changes URL without reload)
+let lastUrl = location.href;
+setInterval(() => {
+  if (location.href !== lastUrl) {
+    lastUrl = location.href;
+    removeRelatedPostsButton();          // clean up immediately on nav
+    setTimeout(checkForBiasTaggedPost, 400); // short settle time
+  }
+}, 300);
+
