@@ -44,9 +44,15 @@ if (!window.location.hostname.includes('reddit.com')) {
       chrome.storage.sync.set({ biasDetectionEnabled: isEnabled });
       
       if (isEnabled) {
+        // Re-enable bias scanning
         scanPosts();
+        // Recheck for bias-tagged post so the button reappears if needed
+        setTimeout(checkForBiasTaggedPost, 1000);
+    
       } else {
+    // Remove all bias indicators and also remove related posts button
         removeAllIndicators();
+        removeRelatedPostsButton();
       }
     });
   }
@@ -248,6 +254,7 @@ function addRelatedPostsButton() {
   document.body.appendChild(panel);
 
   // --- Placeholder: fetch top 5 related posts (replace with your backend) ---  #need to write the endpoints
+  // how it'll work: when  user opens a post, send post content to backend for backend to find related posts and then filter out top 5 opposite slant or neutral posts. titles, urls and bias tags of these posts will be sent to front end to be displayed in pane 
   async function fetchRelatedPosts() {
     return [
       { title: "Policy implications overview", url: "https://www.reddit.com/r/example1", bias: "neutral" },
