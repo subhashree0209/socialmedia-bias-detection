@@ -10,7 +10,8 @@
     "storage"
   ],
   "host_permissions": [
-    "*://*.reddit.com/*"
+    "*://*.reddit.com/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js"  
