@@ -34,10 +34,13 @@ docker exec -it mysql_db mysql -u root -proot
 ## 📁 Project Structure
 
 ```
-create_database/
+database/
 ├── data/
-│   ├── labelled_data_clean.csv
-│   └── unlabelled_data_clean.csv
+│   ├── unlabelled_data_clean.csv
+│   ├── labelled_data_part1.csv
+│   ├── labelled_data_part2.csv
+│   ├── ...
+│   └── labelled_data_part10.csv
 ├── Dockerfile
 ├── docker-compose.yml
 ├── import_csvs.py
@@ -85,8 +88,8 @@ cd create_database
 ### Step 2: Prepare Your CSV Files
 
 Ensure your CSV files are in the `data/` directory:
-- `labelled_data_clean.csv`
-- `unlabelled_data_clean.csv`
+- `unlabelled_data_clean.csv` → will be imported into redditposts
+- `labelled_data_part1.csv` → `labelled_data_part10.csv` → will be combined into newsarticles
 
 ### Step 3: Build and Start the Containers
 
@@ -145,17 +148,18 @@ USE mydatabase;
 SHOW TABLES;
 
 -- View labelled data
-SELECT * FROM labelled_data_clean LIMIT 10;
+SELECT * FROM newsarticles LIMIT 10;
 
 -- View unlabelled data
-SELECT * FROM unlabelled_data_clean LIMIT 10;
+SELECT * FROM redditposts LIMIT 10;
 
 -- Check table structure
-DESCRIBE labelled_data_clean;
+DESCRIBE newsarticles;
+DESCRIBE redditposts;
 
 -- Count records
-SELECT COUNT(*) FROM labelled_data_clean;
-SELECT COUNT(*) FROM unlabelled_data_clean;
+SELECT COUNT(*) FROM newsarticles;
+SELECT COUNT(*) FROM redditposts;
 ```
 
 ### Re-importing CSV Files
@@ -192,11 +196,11 @@ docker-compose run --rm csv_importer
 
 ### Tables Created
 
-1. **labelled_data_clean**
+1. **newsarticles**
    - Contains the cleaned labelled dataset
    - Table structure matches CSV columns
    
-2. **unlabelled_data_clean**
+2. **redditposts**
    - Contains the cleaned unlabelled dataset
    - Table structure matches CSV columns
 
@@ -230,8 +234,8 @@ environment:
 
 ```python
 csv_files = {
-    'labelled_data_clean': 'data/labelled_data_clean.csv',
-    'unlabelled_data_clean': 'data/unlabelled_data_clean.csv',
+    'newsarticles': ['data/labelled_data_part1.csv', 'data/labelled_data_part2.csv'],
+    'redditposts': 'data/unlabelled_data_clean.csv',
     'your_new_table': 'data/your_new_file.csv'  # Add this line
 }
 ```
