@@ -18,14 +18,27 @@ engine = create_engine(engine_str)
 
 data_folder = "data"
 
-# Loop through CSV files
-for file in os.listdir(data_folder):
-    if file.endswith(".csv"):
-        table_name = os.path.splitext(file)[0]
-        path = os.path.join(data_folder, file)
-        print(f"📥 Importing {file} → table '{table_name}'")
+# --- Import labelled data into newsarticles ---
+newsarticles_parts = [f"labelled_data_part{i}.csv" for i in range(1, 11)]
+newsarticles_df_list = []
 
-        df = pd.read_csv(path)
-        df.to_sql(table_name, con=engine, if_exists="replace", index=False)
+for file in newsarticles_parts:
+    path = os.path.join(data_folder, file)
+    if os.path.exists(path):
+        print(f"📥 Reading {file} for newsarticles table")
+        newsarticles_df_list.append(pd.read_csv(path))
 
-print("✅ All CSV files imported successfully!")
+# Concatenate all parts into one DataFrame
+newsarticles_df = pd.concat(newsarticles_df_list, ignore_index=True)
+newsarticles_df.to_sql("newsarticles", con=engine, if_exists="replace", index=False)
+print(f"✅ Imported all labelled data into 'newsarticles' table!")
+
+# --- Import unlabelled data into redditposts ---
+unlabelled_file = os.path.join(data_folder, "unlabelled_data_clean.csv")
+if os.path.exists(unlabelled_file):
+    print(f"📥 Importing unlabelled_data_clean.csv → redditposts table")
+    unlabelled_df = pd.read_csv(unlabelled_file)
+    unlabelled_df.to_sql("redditposts", con=engine, if_exists="replace", index=False)
+    print(f"✅ Imported unlabelled data into 'redditposts' table!")
+
+print("🎉 All CSV files imported successfully!")
