@@ -57,24 +57,57 @@ if (!window.location.hostname.includes('reddit.com')) {
     });
   }
 
+
+  function findAvailPort(start, total=10) {
+    let current = start;
+
+    function checkPort() {
+      if (current >= start + total) {
+        return Promise.resolve(null);
+      }
+
+      return fetch(`http://127.0.0.1:${current}`, {
+        method: 'GET',
+        mode: 'no-cors'
+      })
+      .then(() => {
+        return current
+      })
+      .catch(() => {
+        current++;
+        return checkPort();
+      });
+    }
+    return checkPort();
+  }
+
+
+
   function createDashboardButton() {
     if (document.getElementById('dashboard-btn')) return;
 
-    const btnCon = document.createElement('div');
-    btnCon.id = 'dashboard-btn';
-    btnCon.style.position = "fixed";
-    btnCon.style.bottom = '20px';
-    btnCon.style.right = '20px';
-    btnCon.style.zIndex = '9999';
 
-    btnCon.innerHTML = '<button style="padding: 10px 16px 10px 16 px; background-color: #ff4500; color: white; border-radius:6px; cursor:pointer;"> EchoBreak </button>'
+    findAvailPort(8501).then(availPort => {
+        if (!availPort) {
+          console.error('No free ports between port 8501-8510 for dashboard');
+          return;
+          }
 
-    document.body.appendChild(btnCon)
+        const btnCon = document.createElement('div');
+        btnCon.id = 'dashboard-btn';
+        btnCon.style.position = "fixed";
+        btnCon.style.bottom = '20px';
+        btnCon.style.right = '20px';
+        btnCon.style.zIndex = '9999';
 
-    const button = btnCon.querySelector('button')
-    button.addEventListener('click',() => {
-      window.open('http://192.168.28.19:8501', "_blank");
-    })
+        btnCon.innerHTML = '<button style="padding: 10px 16px 10px 16 px; background-color: #ff4500; color: white; border-radius:6px; cursor:pointer;"> View Dashboard </button>'
+        
+        document.body.appendChild(btnCon)
+        const button = btnCon.querySelector('button')
+        button.addEventListener('click',() => {
+          window.open(`http://127.0.0.1:${availPort}`, "_blank");
+        });
+      })
   }
   
   // Get initial state from storage
@@ -82,25 +115,25 @@ if (!window.location.hostname.includes('reddit.com')) {
     isEnabled = result.biasDetectionEnabled !== false; // Default to true
     
     // Wait for body to exist, then create toggle button
-  const waitForBody = setInterval(() => {
-    if (document.body) {
-      clearInterval(waitForBody);
-      
-      createToggleButton();
-      createDashboardButton();
-      
-      // Update checkbox state
-      const checkbox = document.getElementById('biasToggleCheckbox');
-      if (checkbox) {
-        checkbox.checked = isEnabled;
+    const waitForBody = setInterval(() => {
+      if (document.body) {
+        clearInterval(waitForBody);
+        
+        createToggleButton();
+        createDashboardButton();
+        
+        // Update checkbox state
+        const checkbox = document.getElementById('biasToggleCheckbox');
+        if (checkbox) {
+          checkbox.checked = isEnabled;
+        }
+        
+        if (isEnabled) {
+          scanPosts();
+        }
       }
-      
-      if (isEnabled) {
-        scanPosts();
-      }
-    }
-  }, 100);
-});
+    }, 100);
+  });
  
   //NEED BACKEND
   // Bias indicators - you can expand this
@@ -108,6 +141,9 @@ if (!window.location.hostname.includes('reddit.com')) {
     emotional: ['always', 'never', 'everyone', 'nobody', 'obviously', 'clearly'],
     loaded: ['radical', 'extreme', 'insane', 'crazy', 'absurd'],
     absolute: ['all', 'every', 'none', 'completely', 'totally']
+    // neutral: ['reportedly', 'allegedly','suggests', 'according', 'research', 'evidence', 'data', 'study', 'research', 'seems', 'claims'],
+    // rightWing: ['freedom', 'patriot', 'traditional', 'tax cuts', 'free market', 'border', 'immigrants', 'woke', 'liberal'],
+    // leftWing: ['progressive', 'inclusive', 'equality', 'diversity', 'equal', 'climate', 'rights', 'public', 'renewable']
   };
   
   //NEED BACKEND: replace this

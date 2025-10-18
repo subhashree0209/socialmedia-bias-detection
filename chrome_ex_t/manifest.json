@@ -10,7 +10,8 @@
     "storage"
   ],
   "host_permissions": [
-    "*://*.reddit.com/*"
+    "*://*.reddit.com/*",
+    "http://127.0.0.1/*"
   ],
   "background": {
     "service_worker": "background.js"  
@@ -25,14 +26,14 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "images/magnifying.png",
-      "48": "images/eye.png",
+      "16": "images/extension_logo.png",
+      "48": "images/main_logo.png",
       "128": "images/Bias_Detector.png"
     }
   },
   "icons": {
-    "16": "images/magnifying.png",
-    "48": "images/eye.png",
+    "16": "images/extension_logo.png",
+    "48": "images/main_logo.png",
     "128": "images/Bias_Detector.png"
   }
 }
