@@ -268,49 +268,99 @@ if (!window.location.hostname.includes('reddit.com')) {
     };
   }
 
+
+  // 🔍 Utility: Extract text even if it's inside a shadow DOM
+  function extractTextWithShadow(root) {
+    let text = '';
+
+    function traverse(node) {
+      if (!node) return;
+      if (node.nodeType === Node.TEXT_NODE) {
+        text += node.textContent + ' ';
+      }
+
+      // If the node has a shadow root, crawl it
+      if (node.shadowRoot) {
+        traverse(node.shadowRoot);
+      }
+
+      // Also crawl children
+      node.childNodes.forEach(traverse);
+    }
+
+    traverse(root);
+    return text.trim();
+  }
   
   async function scanPosts() {
     if (!isEnabled) return;
 
     const isOpenedPostPage = location.pathname.includes('/comments/');
 
-    // ✅ OPENED POST PAGE — Version 1 logic
+    //  OPENED POST PAGE — Smart & Stable Logic
     if (isOpenedPostPage) {
-      const openedPost = document.querySelector('[data-testid="post-container"], shreddit-post, .Post');
+      const openedPost = document.querySelector(
+        '[data-testid="post-container"], shreddit-post, .Post'
+      );
       if (!openedPost) {
-        console.log('No opened post found yet, retrying soon...');
+        console.log('⏳ Opened post not found yet, waiting...');
+        return; // Retry on next mutation
+      }
+
+      //  SMART STOP: if a post is already labeled, do not rescan the post
+      if (openedPost.querySelector('.bias-indicator')) {
+        console.log('Bias label already present — stopping further scans.');
         return;
       }
 
-      // Extract title and full body text from DOM (no API call)
-      const title =
-        openedPost.querySelector('h1[data-testid="post-title"], h1, h2, [data-click-id="title"]')
-          ?.innerText || '';
-      const body =
-        openedPost.querySelector('[data-click-id="text"], .usertext-body, [data-testid="post-content"]')
-          ?.innerText || '';
+      // 🎯 Robust Title Selectors
+      const titleElement = openedPost.querySelector(
+        'h1[data-testid="post-title"], h1, h2, [data-click-id="title"]'
+      );
+      const title = titleElement?.innerText?.trim() || '';
+
+      // 🎯 Robust Body Selectors
+      let bodyElement = openedPost.querySelector(
+        'shreddit-post-text-body, [data-testid="post-content"], .usertext-body'
+      );
+      let body = bodyElement?.innerText?.trim() || '';
+
+      // shadow DOM as fallback (if standard DOM didn't return enough content) - on some webpages, reddit's layouts have been changed to shadow DOM
+      if (!body || body.length < 20) {
+        console.log('Body not found with standard DOM. Trying Shadow DOM...');
+        body = extractTextWithShadow(openedPost);
+        console.log('Shadow DOM extracted content length:', body.length);
+      }
 
       const fullText = `${title}\n${body}`.trim();
-      console.log('Opened post detected — text length:', fullText.length);
 
-      if (fullText.length > 20) {
-        // ✅ DEBUG: Show full text used for analysis (opened post)
-        console.log("=== OPENED POST Bias Analysis Text START ===");
-        console.log(fullText);
-        console.log("=== OPENED POST Bias Analysis Text END ===");
-
-        const biasData = analyzeBias(fullText);
-        if (biasData.score > 0) {
-          addBiasIndicator(openedPost, biasData);
-        }
+      if (fullText.length < 20) {
+        console.log('⚠️ Content not ready yet. Waiting...');
+        return; // Will retry automatically via MutationObserver
       }
-      return; // Stop here, don’t scan feed
+
+      // 🧠 DEBUG OUTPUT: Shows exactly what is analyzed
+      console.log("=== OPENED POST Bias Analysis Text START ===");
+      console.log(fullText);
+      console.log("=== OPENED POST Bias Analysis Text END ===");
+
+      const biasData = analyzeBias(fullText);
+      if (biasData.score > 0) {
+        addBiasIndicator(openedPost, biasData);
+        console.log('Bias indicator added to opened post.');
+      } else {
+        console.log('No bias detected in opened post.');
+      }
+
+      return; // Smart stop: do not continue feed scanning
     }
 
-    // ✅ FEED PAGE — Version 2 logic (fetch full text via Reddit JSON API)
+    // FEED PAGE — Version 2 logic (fetch full text via Reddit JSON API)
     const posts = document.querySelectorAll(
-      'shreddit-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
+      'shreddit-post, shreddit-search-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
     );
+
+    
 
     for (const post of posts) {
       const t3id = getPostId(post);
@@ -330,7 +380,30 @@ if (!window.location.hostname.includes('reddit.com')) {
         }
       }
     }
+
+    const searchResults = document.querySelectorAll('[data-testid="search-post-with-content-preview"]');
+
+    for (const post of searchResults) {
+      const t3id = getPostId(post);
+      if (!t3id || processedT3.has(t3id)) continue;
+      processedT3.add(t3id);
+
+      const full = await fetchFullPost(t3id);
+      if (!full) continue;
+
+      const textContent = `${full.title}\n${full.selftext}`.trim();
+
+      if (textContent.length > 20) {
+        const biasData = analyzeBias(textContent);
+        if (biasData.score > 0) {
+          addBiasIndicator(post, biasData);
+          console.log('Bias indicator added to SEARCH RESULT post:', t3id);
+        }
+      }
+    }
+
   }
+
 
 
   // async function scanPosts() {
