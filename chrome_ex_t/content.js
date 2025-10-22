@@ -128,7 +128,7 @@ if (!window.location.hostname.includes('reddit.com')) {
   const biasKeywords = {
     emotional: ['always', 'never', 'everyone', 'nobody', 'obviously', 'clearly'],
     loaded: ['radical', 'extreme', 'insane', 'crazy', 'absurd'],
-    absolute: ['all', 'every', 'none', 'completely', 'totally']
+    absolute: ['all', 'every', 'none', 'completely', 'totally', 'most', 'least']
     // neutral: ['reportedly', 'allegedly','suggests', 'according', 'research', 'evidence', 'data', 'study', 'research', 'seems', 'claims'],
     // rightWing: ['freedom', 'patriot', 'traditional', 'tax cuts', 'free market', 'border', 'immigrants', 'woke', 'liberal'],
     // leftWing: ['progressive', 'inclusive', 'equality', 'diversity', 'equal', 'climate', 'rights', 'public', 'renewable']
@@ -227,11 +227,13 @@ if (!window.location.hostname.includes('reddit.com')) {
     if (!isEnabled) return; // Don't scan if disabled
     
     // Reddit post selectors (works for both old and new Reddit)
-    const posts = document.querySelectorAll('[data-testid="post-content"], .entry .usertext-body, shreddit-post');
+    const posts = document.querySelectorAll('[data-testid="post-content"], .entry .usertext-body, [data-testid="post-title-text"], [data-testid="post-title-query"],.title, a.title');
     
     posts.forEach(post => {
-      const textContent = post.textContent || post.innerText;
-      if (textContent && textContent.length > 50) {
+
+      let textContent = post.textContent || post.innerText;
+
+      if (textContent && textContent.length > 20) {
         const biasData = analyzeBias(textContent);
         if (biasData.score > 0) {
           addBiasIndicator(post, biasData);
