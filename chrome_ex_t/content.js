@@ -146,6 +146,8 @@ if (!window.location.hostname.includes('reddit.com')) {
     // leftWing: ['progressive', 'inclusive', 'equality', 'diversity', 'equal', 'climate', 'rights', 'public', 'renewable']
   };
   
+  
+
   //NEED BACKEND: replace this
   function analyzeBias(text) {
     const lowerText = text.toLowerCase();
@@ -165,6 +167,29 @@ if (!window.location.hostname.includes('reddit.com')) {
   
     return { score: biasScore, types: detectedTypes };
   }
+
+  // const API_URL = "ADD URL HERE"
+
+  // async function analyzeBias(textContent) {
+  //   try {                                                                     //want to see if we can even call the backend
+  //     const response = await fetch(API_URL, {
+  //     method: "POST",
+  //     headers: {"Content-Type": "application/json"}, 
+  //     body: JSON.stringify({textContent})
+  //     });
+
+  //     if (!response.ok) {
+  //       throw new Error("Failed to fetch bias labelling from the backend but can call backend")
+  //       }
+
+  //     const biasLabel = await response.json()
+  //     return biasLabel
+  //     console.log("Sending data to the back end was a success")
+  //     } catch (err){
+  //       console.error("Cannot call back end at all: ", err)
+  //       return null
+  //     } 
+  // }
   
   function addBiasIndicator(element, biasData) {
     // Check if indicator already exists
@@ -186,6 +211,29 @@ if (!window.location.hostname.includes('reddit.com')) {
     element.style.position = 'relative';
     element.insertBefore(indicator, element.firstChild);
   }
+
+  // function addBiasIndicator(element, biasData) {
+  //   if (element.querySelector('.bias-indicator')) return;
+
+  //   const biasIndicator = document.createElement('div');
+  //   biasIndicator.className = 'bias-indicator';
+
+  //   let label = biasData.label.toLowerCase();
+  //   let labelClass = "bias-neutral"; 
+
+  //   if (label === "left wing") {
+  //     labelClass = "bias-left";
+  //   } else if (
+  //     label === "right wing") {
+  //     labelClass = "bias-right";
+  //   }
+
+  //   biasIndicator.classList.add(`labelClass`);
+  //   biasIndicator.innerHTML = `<span class="bias-badge"> ${label.toUpperCase()}</span>`;
+
+  //   element.style.position = 'relative';
+  //   element.insertBefore(biasIndicator, element.firstChild);
+  // }
   
   function scanPosts() {
     if (!isEnabled) return; // Don't scan if disabled
@@ -203,6 +251,27 @@ if (!window.location.hostname.includes('reddit.com')) {
       }
     });
   }
+
+  // async function scanPosts() {
+  //   if (!isEnabled) return;
+
+  //   const posts = document.querySelectorAll('[data-testid="post-content"], .entry .usertext-body, shreddit-post');
+
+  //   for (const post of posts) {
+  //     const textContent = post.textContent || post.innerText;
+  //     if (!textContent) {
+  //       continue
+  //     }
+
+  //     try {
+  //       const biasData = await analyzeBias(textContent);
+
+  //       addBiasIndicator(post, BiasData)
+  //     } catch (err) {
+  //       console.error("Error analysing post but could retrieve text content: ", err)
+  //     }
+  //   }
+  // }
   
   // Function to remove all bias indicators
   function removeAllIndicators() {
