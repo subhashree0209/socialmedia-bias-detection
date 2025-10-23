@@ -223,23 +223,22 @@ if (!window.location.hostname.includes('reddit.com')) {
   // }
 
 
-  // === Full-content helper functions ===
+  // HELPER FUNCTIONS  ===
 
-  // Keep track of posts we already processed to avoid duplicate work
+  // keep track of posts we already processed to avoid duplicate work
   const processedT3 = new Set();
 
-  // Derive a "t3_xxx" id from a post element
+  // default way to obtain every post's unique indentifier "t3_xxx" id from its post element
   function getPostId(post) {
-    // New Reddit web component (best case)
     if (post.matches('shreddit-post')) {
-      const idAttr = post.getAttribute('id'); // often "t3_abc123"
+      const idAttr = post.getAttribute('id'); 
       if (idAttr) return idAttr;
       const permalink = post.getAttribute('permalink') || '';
       const m = permalink.match(/\/comments\/([a-z0-9]+)\//i);
       if (m) return `t3_${m[1]}`;
     }
 
-    // Fallback: look for a link to /comments/<id>/
+    // handles case of some posts having older layouts 
     const a = post.querySelector('a[href*="/comments/"]');
     if (a) {
       const m = a.getAttribute('href')?.match(/\/comments\/([a-z0-9]+)\//i);
@@ -257,7 +256,11 @@ if (!window.location.hostname.includes('reddit.com')) {
     return m ? `t3_${m[1]}` : null;
   }
 
-  // Fetch full title/selftext via Reddit JSON (public)
+
+
+
+  //use the t3 id to fetch full title and post body via Reddit JSON (public) 
+  //allows full content of posts to be analysed before bias labels are displayed in a feed (posts in feed usually only have title and first few lines of post body)
   async function fetchFullPost(t3id) {
     if (!t3id) return null;
     const shortId = t3id.replace(/^t3_/, '');
@@ -272,9 +275,12 @@ if (!window.location.hostname.includes('reddit.com')) {
 
     return {
       title: d.title || '',
-      selftext: d.selftext || '',   // full body for self-posts; empty for link/image/video posts
+      selftext: d.selftext || '',   // full text body for normal posts; empty for link/image/video posts
     };
   }
+
+
+
 
 
 
@@ -284,7 +290,7 @@ if (!window.location.hostname.includes('reddit.com')) {
 
     const isOpenedPostPage = location.pathname.includes('/comments/');
 
-    //  OPENED POST PAGE — Smart & Stable Logic
+    //  OPENED POST PAGE 
     if (isOpenedPostPage) {
       const openedPost = document.querySelector(
         '[data-testid="post-container"], shreddit-post, .Post'
@@ -294,7 +300,7 @@ if (!window.location.hostname.includes('reddit.com')) {
         return; // Retry on next mutation
       }
 
-      //  SMART STOP: if a post is already labeled, do not rescan the post
+      //  if a post is already labeled, do not rescan the post
       if (openedPost.querySelector('.bias-indicator')) {
         console.log('Bias label already present — stopping further scans.');
         return;
@@ -326,10 +332,7 @@ if (!window.location.hostname.includes('reddit.com')) {
         return; // Will retry automatically via MutationObserver
       }
 
-      // 🧠 DEBUG OUTPUT: Shows exactly what is analyzed
-      console.log("=== OPENED POST Bias Analysis Text START ===");
-      console.log(fullText);
-      console.log("=== OPENED POST Bias Analysis Text END ===");
+      
 
       const biasData = analyzeBias(fullText);
       if (biasData.score > 0) {
@@ -438,10 +441,10 @@ if (!window.location.hostname.includes('reddit.com')) {
     indicators.forEach(indicator => indicator.remove());
   }
   
-  // Initial scan
+  // initial scan (wait 1s to let content load before they are scanned)
   setTimeout(scanPosts, 1000);
   
-  // !!!!! everytime the page changes (e.g. new posts loaded), run scanPosts() again to analyze new content
+  // handles user scrolling and new posts loading
   const observer = new MutationObserver(() => {   
     if (isEnabled) {
       scanPosts();
@@ -475,25 +478,25 @@ if (!window.location.hostname.includes('reddit.com')) {
     }
   });
   
-  // === Detect URL navigation (Reddit is an SPA) ===
+  // Allows the content.js to be rerun when a URL changes (e.g. clicking on a post)
   let lastUrl = location.href;
 
   setInterval(() => {
-    if (location.href !== lastUrl) {
+    if (location.href !== lastUrl) {    //if url has changed
       lastUrl = location.href;
       console.log('URL changed, rescanning posts...');
 
-      const isOpenedPostPage = location.pathname.includes('/comments/');
+      const isOpenedPostPage = location.pathname.includes('/comments/'); //checks what page user has navigated into
 
       if (isOpenedPostPage) {
         console.log('Opened post detected - scanning after load');
-        setTimeout(scanPosts, 1500); // Delay gives Reddit time to render title + body
+        setTimeout(scanPosts, 1500); // delay gives Reddit time to render title + body
       } else {
         // Feed or other pages
         setTimeout(scanPosts, 800);
       }
     }
-  }, 500);
+  }, 500);  //every 500ms (0.5s), URL change is checked
 
 
 
