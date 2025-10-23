@@ -1,9 +1,8 @@
 // Content script for Reddit bias detection
 
-// check if we're on Reddit
+// ensure we're on Reddit
 if (!window.location.hostname.includes('reddit.com')) {
     console.log('Not a Reddit page - extension inactive');
-    // Stop execution
     throw new Error('This extension only works on Reddit pages');
   }
   
@@ -223,7 +222,8 @@ if (!window.location.hostname.includes('reddit.com')) {
   //   element.insertBefore(biasIndicator, element.firstChild);
   // }
 
-  // === Full-content helper fucntions ===
+
+  // === Full-content helper functions ===
 
   // Keep track of posts we already processed to avoid duplicate work
   const processedT3 = new Set();
@@ -277,28 +277,7 @@ if (!window.location.hostname.includes('reddit.com')) {
   }
 
 
-  // 🔍 Utility: Extract text even if it's inside a shadow DOM
-  function extractTextWithShadow(root) {
-    let text = '';
 
-    function traverse(node) {
-      if (!node) return;
-      if (node.nodeType === Node.TEXT_NODE) {
-        text += node.textContent + ' ';
-      }
-
-      // If the node has a shadow root, crawl it
-      if (node.shadowRoot) {
-        traverse(node.shadowRoot);
-      }
-
-      // Also crawl children
-      node.childNodes.forEach(traverse);
-    }
-
-    traverse(root);
-    return text.trim();
-  }
   
   async function scanPosts() {
     if (!isEnabled) return;
