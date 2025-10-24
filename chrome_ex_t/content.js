@@ -203,25 +203,19 @@ document.addEventListener('click', (event) => {
     console.log('✅ Reddit post clicked:', post);
     const postTitle = post.querySelector('h3')?.innerText || "Untitled Post"; 
     const postId = post.id || "unknown";
-    createOverlayPopup(postId, postTitle);
+    createOverlayPopup();
   }
 });
 
 // Function to create and display modal overlay (Reddit-style)
-function createOverlayPopup(postId, postTitle) {
+function createOverlayPopup() {
   if (document.getElementById('overlay-popup')) return;
 
-// Dynamically create the audio element outside the modal content
-  const sound = document.createElement('audio');
-  sound.id = 'modal-sound';  // Assign an ID to the audio element
-  sound.src = 'sounds/soundeffect1.mp3';  // Make sure this path is correct
-  sound.preload = 'auto';  // Preload the audio
-  document.body.appendChild(sound);  // Append it to the body (outside of the modal)
+  const audio = new Audio(chrome.runtime.getURL('sounds/sound1.mp3'));
 
-// Play the sound when the modal is triggered
-  sound.play().catch(error => {
-    console.log("Error playing sound:", error);  // Catch and log any errors
-  });
+  audio.play().catch((error) => {
+    console.log("Error playing sound: ", error, audio);
+  })
 
   // Overlay (dimmed background)
   const overlay = document.createElement('div');
