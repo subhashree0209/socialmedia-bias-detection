@@ -228,7 +228,7 @@ if (!window.location.hostname.includes('reddit.com')) {
     biasIndicator.style.display = 'block';
     biasIndicator.style.textAlign = 'center';
     biasIndicator.style.width = '15%';
-    biasIndicator.style.margin = '12px 0';
+    biasIndicator.style.margin = '5px 4px';
     biasIndicator.style.clear = 'both'
     // element.style.position = 'relative';
     element.appendChild(biasIndicator);
