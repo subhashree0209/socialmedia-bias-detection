@@ -8,9 +8,6 @@ import praw
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-
 # --- FLASK APP ---
 app = Flask(__name__)
 
@@ -28,10 +25,20 @@ user_bias_data = defaultdict(lambda: {"left": 0, "right": 0})
 BIAS_THRESHOLD = 20
 
 # --- REDDIT API ---
+load_dotenv() # import client id and secret id from .env
+
+client_id = os.getenv("REDDIT_CLIENT_ID")
+secret_id = os.getenv("REDDIT_SECRET_ID")
+user_agent="counter_recommendation_system"
+
+# uncomment to check if accessed 
+# print(f"Client ID: {client_id}")
+# print(f"Secret ID: {secret_id}")
+
 reddit = praw.Reddit(
-    client_id=os.getenv('REDDIT_CLIENT_ID'),
-    client_secret=os.getenv('REDDIT_CLIENT_SECRET'),
-    user_agent="counter_recommendation_system/1.0"
+    client_id=client_id,
+    client_secret=secret_id,
+    user_agent="counter_recommendation_system"
 )
 
 # --- CLASSIFY POST ---
@@ -67,7 +74,7 @@ def extract_keywords(text, top_n=3):
         print(f"Keyword extraction error: {e}")
         return []
 
-# --- SEARCH REDDIT (SIMPLIFIED - USE REDDIT'S RANKING) ---
+# --- SEARCH REDDIT (SIMPLIFIED - USING REDDIT'S RANKING) ---
 def search_and_classify(query, limit=50):
     """
     Search Reddit using their built-in 'top' sort.
