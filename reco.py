@@ -274,9 +274,10 @@ def recommend():
         print(f"Label: {leaning} | Text: {text[:80]}...")
 
         # For tracking purposes, we need some identifier
-        # Using a hash of the text as a simple user identifier
-        # You may want to modify this based on your needs
-        user_id = str(hash(text[:100]))  # Simple hash for demo
+        # In this case, we will be using user_id as the identifier
+        user_id = data.get("user_id")
+        if not user_id:
+            return jsonify({"error": "user_id is required"}), 400
         
         # Update bias counts
         if leaning in ["left", "right"]:
@@ -302,7 +303,9 @@ def recommend():
             # Get 2 neutral + 2 opposite recommendations
             recommendations = find_counter_posts(text, bias)
             return jsonify({
+                "user_id": user_id,
                 "status": "bias_detected",
+                "bias_detected": True,
                 "bias": bias,
                 "recommendations": recommendations  # 2 neutral + 2 opposite
             })
