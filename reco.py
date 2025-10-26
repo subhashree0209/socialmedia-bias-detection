@@ -25,7 +25,7 @@ user_bias_data = defaultdict(lambda: {"left": 0, "right": 0})
 BIAS_THRESHOLD = 20
 
 # --- REDDIT API ---
-load_dotenv() # import client id and secret id (dummy account) from .env
+load_dotenv() # import client id and secret id from .env
 
 client_id = os.getenv("REDDIT_CLIENT_ID")
 secret_id = os.getenv("REDDIT_SECRET_ID")
@@ -298,23 +298,16 @@ def recommend():
             user_bias_data[user_id] = {"left": 0, "right": 0}
 
         # Return response
-        response = {
-            "user_id": user_id,
-            "title" : title,
-            "post" : post,
-            "bias_detected" : False
-        }
-
         if bias:
             # Get 2 neutral + 2 opposite recommendations
             recommendations = find_counter_posts(text, bias)
-            response.updates({
+            return jsonify({
                 "status": "bias_detected",
                 "bias": bias,
                 "recommendations": recommendations  # 2 neutral + 2 opposite
             })
 
-        return jsonify
+        return '', 204
 
     except Exception as e:
         print(f"ERROR: {e}")
