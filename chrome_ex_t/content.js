@@ -188,7 +188,7 @@ if (!window.location.hostname.includes('reddit.com')) {
        return biasLabel
 
        } catch (err){
-          if (err.message === "Failed to Fetch") {
+          if (err.message === "Failed to fetch") {
             console.error("Cannot call back end at all, make sure labelling.py is running")
           } else {
             console.error("Backend error: ", err)
@@ -603,9 +603,8 @@ btn.addEventListener("mouseenter", async () => {
 
   const rect = btn.getBoundingClientRect();
 
-  // Compute live geometry — data-driven, not hardcoded
+  // live geometry — data-driven, not hardcoded
   const panelWidth = panel.offsetWidth;
-  const panelHeight = panel.offsetHeight;
   const viewportWidth = window.innerWidth;
 
   // Align left edge of panel slightly left of button’s right edge,
@@ -646,53 +645,56 @@ function removeRelatedPostsButton() {
   document.getElementById("related-posts-panel")?.remove();
 }
 
+
+
 // Make Related Posts button appear on correct pages
 async function checkForBiasTaggedPost() {
-
   // check if opened post
   if (!isPostCommentsPage()) {
     removeRelatedPostsButton();
     return;
   }
-
   // check if the opened post content has loaded
-  const mainPost =
-    document.querySelector("shreddit-post") ||
-    document.querySelector('[data-test-id="post-content"]');
-
+  const mainPost = document.querySelector(
+    "shreddit-post, [data-testid='post-container'], [data-test-id='post-content']"
+  );
   if (!mainPost) {
     removeRelatedPostsButton();
     return;
   }
 
-  // if post has a bias label, add Related Posts button
   const hasBias = !!mainPost.querySelector(".bias-indicator");
 
-  if (hasBias) {
-    const username = await getRedditUsername(); 
-
+  // one place to collect and log everything
+  const collect = async () => {
+    const username  = await getRedditUsername();
     const subreddit = getOpenedPostSubredditName();
-
-    const label = getBiasLabelForOpenedPost();
-
+    const label     = getBiasLabelForOpenedPost();
     console.log("[Related] user:", username, "subreddit:", subreddit, "label:", label);
 
     if (!document.getElementById("related-posts-btn")) {
       addRelatedPostsButton();
     }
-  } else {
-    removeRelatedPostsButton();
+  };
 
-    // continue checking the post in case bias label loads later (handle slow updating of bias label)
-    const observer = new MutationObserver(() => {
-      if (mainPost.querySelector(".bias-indicator")) {
-        addRelatedPostsButton();
-        observer.disconnect();
-      }
-    });
-    observer.observe(mainPost, { childList: true, subtree: true });
+  if (hasBias) {
+    // if bias label already on screen, collect now
+    await collect();
+    return;
   }
+
+  //continue checking the post in case bias label loads later (handle slow updating of bias label)
+  // if bias label appears later, collect info
+  const observer = new MutationObserver(async () => {
+    if (mainPost.querySelector(".bias-indicator")) {
+      await collect();
+      observer.disconnect();
+    }
+  });
+  observer.observe(mainPost, { childList: true, subtree: true });
 }
+
+
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -730,6 +732,7 @@ function deepFind(root, predicate) {
   return null;
 }
 
+
 function getOpenedPostSubredditName() {
   const openedPost =
     document.querySelector('[data-testid="post-container"]') ||
@@ -751,7 +754,6 @@ function getBiasLabelForOpenedPost() {
   const openedPost = document.querySelector('shreddit-post, [data-testid="post-container"]');
   return openedPost?.dataset?.biasLabel ?? null;
 }
-
 
 
 
