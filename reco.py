@@ -98,9 +98,9 @@ def search_and_classify(query, limit=50):
         print(f"Search error: {e}")
         return []
 
-# --- FIND TOP 3 COUNTER POSTS ---
+# --- FIND 2 NEUTRAL + 2 OPPOSITE POSTS ---
 def find_counter_posts(latest_post_text, bias):
-    """Find top 3 counter-posts from opposite leaning"""
+    """Find 2 neutral posts + 2 opposite leaning posts"""
     # Extract keywords
     keywords = extract_keywords(latest_post_text)
     if not keywords:
@@ -113,27 +113,39 @@ def find_counter_posts(latest_post_text, bias):
     # Search Reddit (already sorted by "top")
     posts = search_and_classify(query, limit=50)
 
-    # Filter for opposite leaning
+    # Separate posts by leaning
+    neutral_posts = [p for p in posts if p["leaning"] == "neutral"]
     target_leaning = "right" if bias == "left" else "left"
     opposite_posts = [p for p in posts if p["leaning"] == target_leaning]
 
+    print(f"Found {len(neutral_posts)} neutral posts")
     print(f"Found {len(opposite_posts)} {target_leaning}-leaning posts")
 
-    # Return top 3 (already sorted by Reddit's ranking)
-    return opposite_posts[:3]
+    # Get top 2 from each
+    selected_neutral = neutral_posts[:2]
+    selected_opposite = opposite_posts[:2]
 
-# --- MAIN ENDPOINT ---
-@app.route("/api/recommend", methods=["POST"])
-def recommend():
+    # Combine: 2 neutral + 2 opposite
+    recommendations = selected_neutral + selected_opposite
+
+    print(f"Returning {len(recommendations)} total posts (2 neutral + 2 opposite)")
+    return recommendations
+
+# --- RELATED POSTS ENDPOINT (FOR DATABASE UPDATE) ---
+@app.route("/api/related", methods=["POST"])
+def related_posts():
     """
-    Main recommendation endpoint
+    Get related posts from opposite leaning and neutral.
+    Use this endpoint to update your database.
     
     Required fields:
     - user_id: string
     - title: string
-    - body: string (can be empty)
-    - label: string ('left', 'right', or 'neutral')
+    - post: string (post body/content)
+    - label: string ('left' or 'right')
     - subreddit: string
+    
+    Returns: 2 neutral posts + 2 opposite leaning posts
     """
     try:
         # Get and validate input
@@ -141,14 +153,96 @@ def recommend():
         if not data:
             return jsonify({"error": "No data provided"}), 400
 
-        # Validate required fields
+        # Validate all required fields
         user_id = data.get("user_id")
         if not user_id:
             return jsonify({"error": "user_id required"}), 400
 
         title = data.get("title", "")
-        body = data.get("body", "")
-        text = (title + " " + body).strip()
+        post = data.get("post", "")
+        text = (title + " " + post).strip()
+
+        leaning = data.get("label")
+        if not leaning:
+            return jsonify({"error": "label required"}), 400
+
+        if leaning not in ["left", "right"]:
+            return jsonify({"error": "label must be 'left' or 'right' for related posts"}), 400
+
+        subreddit = data.get("subreddit")
+        if not subreddit:
+            return jsonify({"error": "subreddit required"}), 400
+
+        if not text:
+            return jsonify({"error": "title or post required"}), 400
+
+        print(f"\n{'='*50}")
+        print(f"Related posts request")
+        print(f"User: {user_id} | Subreddit: {subreddit}")
+        print(f"Label: {leaning} | Text: {text[:80]}...")
+
+        # Extract keywords
+        keywords = extract_keywords(text)
+        if not keywords:
+            print("No keywords found")
+            return jsonify({"related_posts": []})
+
+        print(f"Keywords: {keywords}")
+        query = " ".join(keywords)
+
+        # Search Reddit
+        posts = search_and_classify(query, limit=50)
+
+        # Separate posts by leaning
+        neutral_posts = [p for p in posts if p["leaning"] == "neutral"]
+        target_leaning = "right" if leaning == "left" else "left"
+        opposite_posts = [p for p in posts if p["leaning"] == target_leaning]
+
+        print(f"Found {len(neutral_posts)} neutral posts")
+        print(f"Found {len(opposite_posts)} {target_leaning}-leaning posts")
+
+        # Get top 2 from each
+        selected_neutral = neutral_posts[:2]
+        selected_opposite = opposite_posts[:2]
+
+        # Combine: 2 neutral + 2 opposite
+        related = selected_neutral + selected_opposite
+
+        print(f"Returning {len(related)} total posts (2 neutral + 2 opposite)")
+
+        # Return posts
+        return jsonify({
+            "related_posts": related  # 2 neutral + 2 opposite
+        })
+
+    except Exception as e:
+        print(f"ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+# --- MAIN RECOMMENDATION ENDPOINT ---
+@app.route("/api/recommend", methods=["POST"])
+def recommend():
+    """
+    Main recommendation endpoint based on user bias tracking.
+    
+    Required fields:
+    - title: string
+    - post: string (post body/content)
+    - label: string ('left', 'right', or 'neutral')
+    
+    Returns: 2 neutral posts + 2 opposite leaning posts when bias threshold reached
+    """
+    try:
+        # Get and validate input
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        title = data.get("title", "")
+        post = data.get("post", "")
+        text = (title + " " + post).strip()
 
         leaning = data.get("label")
         if not leaning:
@@ -157,17 +251,18 @@ def recommend():
         if leaning not in ["left", "right", "neutral"]:
             return jsonify({"error": "label must be 'left', 'right', or 'neutral'"}), 400
 
-        subreddit = data.get("subreddit")
-        if not subreddit:
-            return jsonify({"error": "subreddit required"}), 400
-
         if not text:
-            return jsonify({"error": "title or body required"}), 400
+            return jsonify({"error": "title or post required"}), 400
 
         print(f"\n{'='*50}")
-        print(f"User: {user_id} | Subreddit: {subreddit}")
+        print(f"Recommend request")
         print(f"Label: {leaning} | Text: {text[:80]}...")
 
+        # For tracking purposes, we need some identifier
+        # Using a hash of the text as a simple user identifier
+        # You may want to modify this based on your needs
+        user_id = str(hash(text[:100]))  # Simple hash for demo
+        
         # Update bias counts
         if leaning in ["left", "right"]:
             user_bias_data[user_id][leaning] += 1
@@ -189,84 +284,15 @@ def recommend():
 
         # Return response
         if bias:
-            # Get top 3 counter-recommendations
+            # Get 2 neutral + 2 opposite recommendations
             recommendations = find_counter_posts(text, bias)
             return jsonify({
                 "status": "bias_detected",
                 "bias": bias,
-                "recommendations": recommendations
+                "recommendations": recommendations  # 2 neutral + 2 opposite
             })
 
         return '', 204
-
-    except Exception as e:
-        print(f"ERROR: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({"error": str(e)}), 500
-
-# --- RELATED POSTS ENDPOINT ---
-@app.route("/api/related", methods=["POST"])
-def related_posts():
-    """
-    Get 3 related posts from opposite leaning
-    
-    Required fields:
-    - title: string
-    - body: string (can be empty)
-    - label: string ('left' or 'right')
-    - subreddit: string
-    """
-    try:
-        # Get and validate input
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        title = data.get("title", "")
-        body = data.get("body", "")
-        text = (title + " " + body).strip()
-
-        leaning = data.get("label")
-        if not leaning:
-            return jsonify({"error": "label required"}), 400
-
-        if leaning not in ["left", "right"]:
-            return jsonify({"error": "label must be 'left' or 'right' for related posts"}), 400
-
-        subreddit = data.get("subreddit")
-        if not subreddit:
-            return jsonify({"error": "subreddit required"}), 400
-
-        if not text:
-            return jsonify({"error": "title or body required"}), 400
-
-        print(f"\n{'='*50}")
-        print(f"Related posts request | Subreddit: {subreddit}")
-        print(f"Label: {leaning} | Text: {text[:80]}...")
-
-        # Extract keywords
-        keywords = extract_keywords(text)
-        if not keywords:
-            print("No keywords found")
-            return jsonify({"related_posts": []})
-
-        print(f"Keywords: {keywords}")
-        query = " ".join(keywords)
-
-        # Search Reddit
-        posts = search_and_classify(query, limit=30)
-
-        # Filter for opposite leaning
-        target_leaning = "right" if leaning == "left" else "left"
-        opposite_posts = [p for p in posts if p["leaning"] == target_leaning]
-
-        print(f"Found {len(opposite_posts)} {target_leaning}-leaning posts")
-
-        # Return top 3
-        return jsonify({
-            "related_posts": opposite_posts[:3]
-        })
 
     except Exception as e:
         print(f"ERROR: {e}")
@@ -288,9 +314,11 @@ def health():
 if __name__ == "__main__":
     print("\n Starting Bias Detection API (Updated)")
     print("=" * 50)
-    print("Required fields per endpoint:")
-    print("/api/recommend: user_id, title, body, label, subreddit")
-    print("/api/related: title, body, label, subreddit")
+    print("Endpoint purposes:")
+    print("/api/related - Use this to update database (requires user_id, title, post, label, subreddit)")
+    print("/api/recommend - Get recommendations based on bias tracking (requires title, post, label)")
+    print("=" * 50)
+    print("Returns: 2 neutral + 2 opposite leaning posts")
     print("=" * 50 + "\n")
 
     app.run(host="0.0.0.0", port=8000, debug=True)
