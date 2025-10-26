@@ -646,6 +646,7 @@ function removeRelatedPostsButton() {
 
 // Make Related Posts button appear on correct pages
 function checkForBiasTaggedPost() {
+
   // check if opened post
   if (!isPostCommentsPage()) {
     removeRelatedPostsButton();
@@ -666,6 +667,7 @@ function checkForBiasTaggedPost() {
   const hasBias = !!mainPost.querySelector(".bias-indicator");
 
   if (hasBias) {
+    const uname = getRedditUsername(); 
     if (!document.getElementById("related-posts-btn")) {
       addRelatedPostsButton();
     }
@@ -682,36 +684,60 @@ function checkForBiasTaggedPost() {
     observer.observe(mainPost, { childList: true, subtree: true });
   }
 }
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+
+let cachedUsername = null;
+//
+async function getRedditUsername() {
+  if (cachedUsername) return cachedUsername;
+  try {
+    const res = await fetch('https://www.reddit.com/api/me.json', {
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    cachedUsername = j?.data?.name || null; // e.g. "my_username"
+    return cachedUsername;
+  } catch {
+    return null;
+  }
+}
+
+
+
 
 
 // Allow time for bias scan before deciding whether to show Related Posts button
 setTimeout(checkForBiasTaggedPost, 2000);
 
 
+// detects if user moved to a different page by checking change in URL.
+// if change detected, remove everything from the pag, rescan page and add accordingly
 let lastUrl = location.href;
-// detects if user moved to a different page by checking change in URL
+
 setInterval(() => {
   if (location.href !== lastUrl) { 
     lastUrl = location.href;
     console.log('URL changed, rescanning posts...');
 
-    // 1) Remove Related Posts button (and panel) immediately
+    cachedUsername = null;
+
+    // Remove Related Posts button (and panel) immediately
     removeRelatedPostsButton();
 
-    // 2) Wait for new page load and scan page type
+    // Wait for new page load and scan page type
     const isOpenedPostPage = location.pathname.includes('/comments/');
     const delay = 1500; // give Reddit time to render
 
-    // 3) Add bias labels and show Related Posts button appropriately
+    // Add bias labels and show Related Posts button appropriately
     setTimeout(() => {
       scanPosts();                
       checkForBiasTaggedPost();    
     }, delay);
   }
 }, 400); // how often to check for url changes
-
-
-
-
 
 
