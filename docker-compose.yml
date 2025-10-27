@@ -53,3 +53,10 @@ services:
 
 volumes:
   mysql_data:
+
+
+
+# Network for service communication
+networks:
+  app-network:
+    driver: bridge
