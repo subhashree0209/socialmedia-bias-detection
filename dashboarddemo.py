@@ -2,12 +2,109 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import mysql.connector
+from mysql.connector import Error
+import os
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 st.set_page_config(
     page_title="Dashboard Analytics",
     page_icon="📊",
     layout="wide"
 )
+
+#Connecting dashboard to database
+@st.cache_resource(ttl=300)
+def get_db_connection():
+    try:
+        connection = mysql.connector.connect(
+            host=os.getenv('DB_HOST', 'localhost'),
+            database=os.getenv('DB_NAME', 'your_database_name'),
+            user=os.getenv('DB_USER', 'root'),
+            password=os.getenv('DB_PASSWORD', ''),
+            port=os.getenv('DB_PORT', '3306')
+        )
+        return connection
+    except Error as e:
+        st.error(f"Database connection failed: {e}")
+        return None
+    
+
+#Political spectrum data
+@st.cache_data(ttl=60)
+def get_political_spectrum_data(days_back=30):
+    connection = get_db_connection()
+    if connection is None:
+        return None
+    
+    try:
+        query = """
+        SELECT 
+            bias_label,
+            COUNT(*) as post_count,
+            COUNT(DISTINCT user_id) as unique_users
+        FROM user_activity 
+        WHERE timestamp >= DATE_SUB(NOW(), INTERVAL %s DAY)
+        GROUP BY bias_label
+        ORDER BY post_count DESC
+        """
+        
+        df = pd.read_sql(query, connection, params=[days_back])
+        
+        return df
+    except Error as e:
+        st.error(f"Error fetching political data: {e}")
+        return None
+    finally:
+        if connection.is_connected():
+            connection.close()
+
+#top subreddit data           
+@st.cache_data(ttl=60)
+def get_top_categories_data():
+    """
+    Fetch top content categories based on user activity
+    """
+    connection = get_db_connection()
+    if connection is None:
+        return None
+    
+    try:
+        query = """
+        SELECT 
+            bias_label,
+            COUNT(*) as post_count,
+            AVG(LENGTH(title)) as avg_title_length
+        FROM user_activity 
+        WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        GROUP BY bias_label
+        ORDER BY post_count DESC
+        LIMIT 10
+        """
+        
+        df = pd.read_sql(query, connection)
+        return df
+    except Error as e:
+        st.error(f"Error fetching categories data: {e}")
+        return None
+    finally:
+        if connection.is_connected():
+            connection.close()
+
+# Static screentime data
+def get_static_screentime_data():
+    return {
+        'modes': ['Skeptical Mode', 'Vibes Mode'],
+        'hours': [4.22, 6.5],
+        'time_display': ['4h 13m', '6h 30m'],
+        'total_display': '10h 43m'
+    }
+    
+
 
 # Clean CSS with minimal spacing
 st.markdown("""
@@ -78,22 +175,40 @@ st.markdown(
 col1, col2 = st.columns([1, 1], gap="small")
 
 with col1:
-    # Political Spectrum Pie Chart 
-    st.markdown('<div class="section-header">🎯 Political Spectrum</div>', unsafe_allow_html=True)
+    # Get live data from user_activity table
+    political_data = get_political_spectrum_data()
     
-    # Pie chart data for political spectrum
-    spectrum = ['Left Wing', 'Right Wing', 'Neutral']
-    spectrum_hours = [4.22, 6.5, 2.0]  
-    spectrum_display = ['4h 13m', '6h 30m', '2h 0m']
+    if political_data is not None and not political_data.empty:
+        # Process database data for the chart
+        spectrum = []
+        post_counts = []
+        time_displays = []
+        
+        for _, row in political_data.iterrows():
+            spectrum.append(row['bias_label'].title())
+            post_counts.append(row['post_count'])
+            time_displays.append(count_to_time_display(row['post_count']))
+        
+        # If no data, use fallback
+        if not spectrum:
+            spectrum = ['Left', 'Right', 'Neutral']
+            post_counts = [42, 65, 20]  
+            time_displays = ['1h 24m', '2h 10m', '0h 40m']
+            
+    else:
+        # Fallback data if database is unavailable
+        spectrum = ['Left', 'Right', 'Neutral']
+        post_counts = [42, 65, 20]  
+        time_displays = ['1h 24m', '2h 10m', '0h 40m']
     
     # Pie chart for political spectrum
     fig_spectrum = go.Figure(data=[go.Pie(
         labels=spectrum,
-        values=spectrum_hours,
-        textinfo='percent',
+        values=post_counts,
+        textinfo='percent+label',
         textposition='inside',
-        hovertemplate='<b>%{label}</b><br>%{customdata}<br>%{percent}<extra></extra>',
-        customdata=spectrum_display,
+        hovertemplate='<b>%{label}</b><br>Posts: %{value}<br>%{customdata}<extra></extra>',
+        customdata=time_displays,
         marker=dict(
             colors=['#ff4500', '#0079d3', '#46d160'],
             line=dict(color='white', width=2)
@@ -165,33 +280,43 @@ with col1:
     st.plotly_chart(fig_modes, use_container_width=True, key="mode_breakdown_pie")
 
 with col2:
-    # Top Subreddits Bar Chart section - Smaller size
+    # Top Subreddits Bar Chart section 
     st.markdown('<div class="section-header">🏆 Top Subreddits Engagement</div>', unsafe_allow_html=True)
     st.markdown('*Posts and engagement across your most visited communities*')
     
-    # Data for bar chart
-    subreddit_data = pd.DataFrame({
-        'Subreddit': ['r/Singapore', 'r/askSingapore', 'r/SGexams', 'r/SingaporeFI'],
-        'Posts': [1200, 845, 612, 398],
-        'Engagement_Score': [85, 72, 68, 45]
-    })
+    # Get categories data from database
+    categories_data = get_top_categories_data()
+    
+    if categories_data is not None and not categories_data.empty:
+        # Use database data
+        y_data = [f"{row['bias_label'].title()}" for _, row in categories_data.iterrows()]
+        x_data = categories_data['post_count'].tolist()
+    else:
+        # Fallback data
+        categories_data = pd.DataFrame({
+            'bias_label': ['Left', 'Right', 'Neutral'],
+            'post_count': [42, 65, 20]
+        })
+        y_data = [f"{label}" for label in categories_data['bias_label']]
+        x_data = categories_data['post_count'].tolist()
+
     
     # Horizontal bar chart
-    fig_bar = go.Figure()
+    fig_categories = go.Figure()
     
-    fig_bar.add_trace(go.Bar(
-        y=subreddit_data['Subreddit'],
-        x=subreddit_data['Posts'],
+    fig_categories.add_trace(go.Bar(
+        y=y_data,
+        x=x_data,
         orientation='h',
         name='Posts',
         marker_color='#ff4500',
-        text=subreddit_data['Posts'],
+        text=x_data,
         textposition='auto',
         hovertemplate='<b>%{y}</b><br>Posts: %{x:,}<extra></extra>'
     ))
     
-    fig_bar.update_layout(
-        height=400,  # Reduced from 650 to 400
+    fig_categories.update_layout(
+        height=400,
         showlegend=False,
         margin=dict(l=0, r=0, t=0, b=0),
         font=dict(family='Arial', size=12),
@@ -208,4 +333,4 @@ with col2:
         )
     )
     
-    st.plotly_chart(fig_bar, use_container_width=True, key="top_subreddits_bar")
+    st.plotly_chart(fig_categories, use_container_width=True, key="categories_bar")
