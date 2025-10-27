@@ -11,6 +11,7 @@ import praw
 import os
 import uvicorn
 from fastapi.middleware.cors import CORSMiddleware
+from typing import List
 
 
 # ==========================
@@ -50,10 +51,12 @@ app.add_middleware(
 )
 
 class TextInput(BaseModel):
-    text: str
+    title: str = ""
+    post: str = ""
 
 class BatchInput(BaseModel):
-    texts: list[str]
+    titles: List[str]  # List of titles
+    posts: List[str]   # List of posts
 
 @app.get("/")
 def home():
@@ -61,7 +64,7 @@ def home():
 
 @app.post("/classify")
 def classify_single(input_data: TextInput):
-    text = input_data.text
+    text = (input_data.title + " " + input_data.post).strip()
     inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True, max_length=256)
     with torch.no_grad():
         logits = model(**inputs).logits
@@ -76,13 +79,23 @@ def classify_single(input_data: TextInput):
 
 @app.post("/classify_batch")
 def classify_batch(input_data: BatchInput):
-    texts = input_data.texts
+    # Ensure the lists are of the same length
+    if len(input_data.titles) != len(input_data.posts):
+        return {"error": "Titles and posts must have the same length"}
+
+    # Combine title and post for each item in the batch
+    texts = [f"{title} {post}" for title, post in zip(input_data.titles, input_data.posts)]
+
+    # Tokenize the combined texts
     inputs = tokenizer(texts, return_tensors="pt", truncation=True, padding=True, max_length=256)
+
     with torch.no_grad():
+        # Perform inference on the batch
         logits = model(**inputs).logits
         probs = torch.softmax(logits, dim=1)
         preds = torch.argmax(probs, dim=1)
 
+    # Prepare the results
     results = []
     for i, text in enumerate(texts):
         label = label_mapping[preds[i].item()]
@@ -92,6 +105,7 @@ def classify_batch(input_data: BatchInput):
             "label": label,
             "confidence": round(confidence, 4)
         })
+
     return {"results": results}
 
 # ==========================
