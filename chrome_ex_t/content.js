@@ -8,6 +8,12 @@ if (!window.location.hostname.includes('reddit.com')) {
   
   // Global state
   let isEnabled = true;
+
+  function isPostCommentsPage(href = location.href) {
+  // Matches: /r/<sub>/comments/<postId>/...
+  return /^https?:\/\/(www\.)?reddit\.com\/r\/[^/]+\/comments\/[a-z0-9]+/i.test(href);
+  }
+
   
   // Create toggle button
   function createToggleButton() {
@@ -36,11 +42,17 @@ if (!window.location.hostname.includes('reddit.com')) {
       isEnabled = e.target.checked;
       chrome.storage.sync.set({ biasDetectionEnabled: isEnabled });
       
-      if (isEnabled) {
+      if (isEnabled) { //if toggle on,
+        // Re-enable bias scanning
         processedT3.clear();
         scanPosts();
+        // Recheck for bias-tagged post so the Related Posts button reappears if needed
+        setTimeout(checkForBiasTaggedPost, 1000);
+    
       } else {
+    // Remove all bias indicators and remove related posts button 
         removeAllIndicators();
+        removeRelatedPostsButton();
         processedT3.clear();
       }
     });
@@ -176,7 +188,7 @@ if (!window.location.hostname.includes('reddit.com')) {
        return biasLabel
 
        } catch (err){
-          if (err.message === "Failed to Fetch") {
+          if (err.message === "Failed to fetch") {
             console.error("Cannot call back end at all, make sure labelling.py is running")
           } else {
             console.error("Backend error: ", err)
@@ -221,6 +233,8 @@ if (!window.location.hostname.includes('reddit.com')) {
       label === "right") {
       labelClass = "bias-right";
     }
+
+    element.dataset.biasLabel = label;
 
     biasIndicator.classList.add(labelClass);
     biasIndicator.innerHTML = `<span class="bias-badge"> ${label.toUpperCase()}</span>`;
@@ -296,7 +310,8 @@ if (!window.location.hostname.includes('reddit.com')) {
 
 
 
-  // Detects whether user is on 
+  // ===== Detects what kind of page user is on (opened post, home feed, single word search results feed or >1 word search results feed) 
+  // ====== and adds bias labels accordingly
   async function scanPosts() {
     if (!isEnabled) return;
 
@@ -340,10 +355,10 @@ if (!window.location.hostname.includes('reddit.com')) {
       const fullText = `${title}\n${body}`.trim();
 
       if (fullText.length < 20) {
-        console.log(' Content not ready yet. Waiting...');
         return; // will retry automatically via MutationObserver 
       }
 
+      
       
       //analyse text and insert label   
       const biasData = await analyzeBias(fullText);
@@ -502,28 +517,391 @@ if (!window.location.hostname.includes('reddit.com')) {
     }
   });
   
-  // Allows the content.js to be rerun when a URL changes (e.g. clicking on a post)
-  let lastUrl = location.href;
-
-  setInterval(() => {
-    if (location.href !== lastUrl) {    //if url has changed
-      lastUrl = location.href;
-      console.log('URL changed, rescanning posts...');
-
-      const isOpenedPostPage = location.pathname.includes('/comments/'); //checks what page user has navigated into
-
-      if (isOpenedPostPage) {
-        console.log('Opened post detected - scanning after load');
-        setTimeout(scanPosts, 1500); // delay gives Reddit time to render title + body
-      } else {
-        // Feed or other pages
-        setTimeout(scanPosts, 800);
-      }
-    }
-  }, 500);  //every 0.5s, URL change is checked
-
-
-
-
-
   console.log('Reddit Bias Detector loaded');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ==========================================================
+//             "RELATED POSTS" BUTTON FEATURE
+// - on an opened post, "Related Posts" button will open up a panel that shows posts of opposing & neutral bias
+// ==========================================================
+
+const RELATED_API = "http://127.0.0.1:8001/api/related";
+
+let cachedRelatedPosts = null;     // panel data for current page
+let lastRelatedForUrl = null;      // to prevent post views being logged multiple times
+
+function getOpenedPostTitleAndBody() {
+  const openedPost = document.querySelector("shreddit-post, [data-testid='post-container'], [data-test-id='post-content']");
+  if (!openedPost) return { title: "", body: "" };
+
+  const titleEl = openedPost.querySelector("h1[data-testid='post-title'], h1, h2, [data-click-id='title']");
+  const bodyEl  = openedPost.querySelector("shreddit-post-text-body, [data-testid='post-content'], .usertext-body");
+
+  const title = titleEl?.innerText?.trim() || "";
+  const body  = bodyEl?.innerText?.trim() || "";
+  return { title, body };
+}
+
+async function fetchRelatedForOpenedPost() {
+  if (lastRelatedForUrl === location.href) return cachedRelatedPosts;
+
+  const label     = getBiasLabelForOpenedPost();
+  const subreddit = getOpenedPostSubredditName() || "";
+  const { title, body } = getOpenedPostTitleAndBody();
+  const username  = (await getRedditUsername()) || "anonymous";
+
+  if (!label || !subreddit || (!title && !body)) {
+    console.warn("[/related] Missing required fields", { label, subreddit, title, body });
+    return null;
+  }
+
+
+  const allInfo = {
+    user_id: username,
+    title,
+    post: body,
+    label,
+    subreddit
+  };
+
+  try {
+    const res = await fetch(RELATED_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(allInfo)
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("[/related] HTTP", res.status, text);
+      return null;
+    }
+    const json = await res.json();
+    cachedRelatedPosts = Array.isArray(json.related_posts) ? json.related_posts : [];
+    lastRelatedForUrl = location.href;
+    return cachedRelatedPosts;
+  } catch (e) {
+    console.error("[/related] fetch error", e);
+    return null;
+  }
+}
+
+
+function addRelatedPostsButton() {
+
+  // if button already exists, don't make a duplicate one
+  if (document.getElementById("related-posts-btn")) return;
+
+  // Create floating button 
+  const btn = document.createElement("button");
+  btn.id = "related-posts-btn";
+  btn.textContent = "Related Posts";
+  btn.className = "related-btn";
+
+  // Create dropdown panel container
+  const panel = document.createElement("div");
+  panel.id = "related-posts-panel";
+  panel.className = "related-panel";
+  panel.innerHTML = `<p class="loading">Loading related posts...</p>`;
+
+  // insert the button and dropdown panel into the page
+  document.body.appendChild(btn);
+  document.body.appendChild(panel);
+
+ 
+
+  //Adds the posts to the panel
+  async function addPostsToPanel() {
+  const posts = Array.isArray(cachedRelatedPosts) ? cachedRelatedPosts : [];
+  if (!posts.length) {
+    panel.innerHTML = `<div class="related-panel__header" role="heading" aria-level="2">Related Posts</div>
+      <div class="related-panel__body"><div class="loading">No related posts yet.</div></div>`;
+    return;
+  }
+  panel.innerHTML = `
+    <div class="related-panel__header" role="heading" aria-level="2">Related Posts</div>
+    <div class="related-panel__body">
+      ${posts.map(p => `
+        <a href="${p.url}" target="_blank" class="related-item ${p.leaning || p.bias || ''}" rel="noopener">
+          <span class="related-title" title="${p.title}">${p.title}</span>
+          <span class="related-bias">${(p.leaning || p.bias || 'neutral').toUpperCase()}</span>
+        </a>
+      `).join("")}
+    </div>`;
+}
+
+
+
+//
+btn.addEventListener("mouseenter", async () => {
+  await addPostsToPanel();
+
+  const rect = btn.getBoundingClientRect();
+
+  // live geometry — data-driven, not hardcoded
+  const panelWidth = panel.offsetWidth;
+  const viewportWidth = window.innerWidth;
+
+  // Align left edge of panel slightly left of button’s right edge,
+  // but clamp within viewport
+  let left = rect.right - panelWidth;  // 20px small visual gap
+  left = Math.max(12, Math.min(left, viewportWidth - panelWidth - 12));
+
+  // Position panel below the button
+  const top = rect.bottom + 8;
+
+  panel.style.position = "fixed";
+  panel.style.left = `${left}px`;
+  panel.style.top = `${top}px`;
+  panel.classList.add("show");
+});
+
+
+  // when mouse leaves the button, give it short grace period to get to the pane. if it doesn't, close panel
+  btn.addEventListener("mouseleave", () => {
+    setTimeout(() => {
+      if (!panel.matches(":hover")) panel.classList.remove("show");
+    }, 150);
+  });
+
+  // when mouse leaves panel, close panel
+  panel.addEventListener("mouseleave", () => panel.classList.remove("show"));
+
+  // handles case: if browser window being resized, close the pane (when the pane is opened again, it will dynamically resize, adjusting to new window size)
+  window.addEventListener("resize", () => panel.classList.remove("show"));
+}
+
+
+// === Ensuring Find Related Posts button only appears when user is on an OPENED and BIAS-LABELLED post ===
+
+// Helper to remove existing Related posts button and panel 
+function removeRelatedPostsButton() {
+  document.getElementById("related-posts-btn")?.remove();
+  document.getElementById("related-posts-panel")?.remove();
+  cachedRelatedPosts = null;
+  lastRelatedForUrl = null;
+}
+
+
+
+// Make Related Posts button appear on correct pages (opened & bias labelled post)
+async function checkForBiasTaggedPost() {
+  // check if opened post
+  if (!isPostCommentsPage()) {
+    removeRelatedPostsButton();
+    cachedRelatedPosts = null;
+    lastRelatedForUrl = null;
+    return;
+  }
+  // check if the opened post content has loaded
+  const mainPost = document.querySelector(
+    "shreddit-post, [data-testid='post-container'], [data-test-id='post-content']"
+  );
+  if (!mainPost) {
+    removeRelatedPostsButton();
+    return;
+  }
+
+  const hasBias = !!mainPost.querySelector(".bias-indicator");
+
+  // one place to collect and log everything
+  const collect = async () => {
+    if (lastRelatedForUrl === location.href && Array.isArray(cachedRelatedPosts)) {
+    console.log("[Related] using cached", cachedRelatedPosts.length, "items");
+    return;
+    }
+    const username  = await getRedditUsername();
+    const subreddit = getOpenedPostSubredditName();
+    const label     = getBiasLabelForOpenedPost();
+    console.log("[Related] user:", username, "subreddit:", subreddit, "label:", label);
+
+
+
+  // get title/body from the opened post (same selectors you use elsewhere)
+    const openedPost = document.querySelector(
+      "shreddit-post, [data-testid='post-container'], [data-test-id='post-content']"
+    );
+    const title = openedPost?.querySelector("h1[data-testid='post-title'], h1, h2, [data-click-id='title']")?.innerText?.trim() || "";
+    const body  = openedPost?.querySelector("shreddit-post-text-body, [data-testid='post-content'], .usertext-body")?.innerText?.trim() || "";
+
+    // fire request
+    try {
+      const res = await fetch(RELATED_API, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          user_id: username || "anonymous",
+          subreddit,
+          label,
+          title,
+          post: body
+        })
+      });
+
+      if (!res.ok) {
+        console.error("[Related] backend error", res.status);
+        cachedRelatedPosts = [];
+        lastRelatedForUrl = location.href;
+        return;
+      }
+
+      const data = await res.json();
+      cachedRelatedPosts = data?.related_posts || [];
+      lastRelatedForUrl = location.href;
+
+      console.log(
+        "[Related] user:", username,
+        "subreddit:", subreddit,
+        "label:", label,
+        "items:", cachedRelatedPosts.length
+      );
+    } catch (e) {
+      console.error("[Related] fetch failed:", e);
+      cachedRelatedPosts = [];
+      lastRelatedForUrl = location.href;
+    }
+  };
+    
+  if (hasBias) {
+    // if bias label already on screen, collect now
+    await collect();
+    // ensure the button exists so the hover can show related posts
+    addRelatedPostsButton();
+    return;
+  }
+
+  //continue checking the post in case bias label loads later (handle slow updating of bias label) 
+  // if bias label appears later, collect info  
+  const observer = new MutationObserver(async () => {
+    if (mainPost.querySelector(".bias-indicator")) {
+      await collect();
+      addRelatedPostsButton();
+      observer.disconnect();
+    }
+  });
+  observer.observe(mainPost, { childList: true, subtree: true });
+
+}
+
+      
+
+
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+
+
+//helper function to get Reddit username of post being opened
+let cachedUsername = null;
+async function getRedditUsername() {
+  if (cachedUsername) return cachedUsername;
+  try {
+    const res = await fetch('https://www.reddit.com/api/me.json', {
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    cachedUsername = j?.data?.name || null; // e.g. "my_username"
+    return cachedUsername;
+  } catch {
+    return null;
+  }
+}
+
+// helper function for getOpenedPostSubredditName()
+function deepFind(root, predicate) {
+  const stack = [root];
+  while (stack.length) {
+    const node = stack.pop();
+    if (predicate(node)) return node;
+    if (node instanceof Element || node instanceof DocumentFragment) {
+      if (node.shadowRoot) stack.push(node.shadowRoot);
+      for (const child of node.children) stack.push(child);
+    }
+  }
+  return null;
+}
+
+
+function getOpenedPostSubredditName() {
+  const openedPost =
+    document.querySelector('[data-testid="post-container"]') ||
+    document.querySelector('shreddit-post');
+  if (!openedPost) return null;
+
+  // find the subreddit link inside the opened post
+  const link = deepFind(
+    openedPost,
+    el => el.tagName === 'A' && /\/r\/[^/]+/i.test(el.getAttribute('href') || '')
+  );
+  if (!link) return null;
+
+  const m = (link.getAttribute('href') || '').match(/\/r\/([^/]+)/i);
+  return m ? m[1] : null; 
+}
+
+function getBiasLabelForOpenedPost() {
+  const openedPost = document.querySelector('shreddit-post, [data-testid="post-container"]');
+  return openedPost?.dataset?.biasLabel ?? null;
+}
+
+
+
+
+
+
+
+// Allow time for bias scan before deciding whether to show Related Posts button
+setTimeout(() => {
+  if (isPostCommentsPage()) {
+    checkForBiasTaggedPost();
+  } else {
+    removeRelatedPostsButton();
+  }
+}, 2000);
+
+// detects if user moved to a different page by checking change in URL.
+// if change detected, remove everything from the pag, rescan page and add accordingly
+let lastUrl = location.href;
+
+setInterval(() => {
+  if (location.href !== lastUrl) { 
+    lastUrl = location.href;
+    console.log('URL changed, rescanning posts...');
+
+    cachedUsername = null;
+
+    // Remove Related Posts button (and panel) immediately
+    removeRelatedPostsButton();
+
+    // Wait for new page load and scan page type
+    const isOpenedPostPage = location.pathname.includes('/comments/');
+    const delay = 1500; // give Reddit time to render
+
+    // Add bias labels and show Related Posts button appropriately
+    setTimeout(() => {
+      scanPosts();                
+      checkForBiasTaggedPost();    
+    }, delay);
+  }
+}, 400); // how often to check for url changes
+
+
