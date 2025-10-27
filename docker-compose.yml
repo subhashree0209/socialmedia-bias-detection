@@ -1,34 +1,49 @@
-version: "3.8"
+version: "3.9"
+
 services:
-  db:
+  mysql_db:
     image: mysql:8.0
     container_name: mysql_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: mydatabase
+      MYSQL_ROOT_PASSWORD: root  # Root password for MySQL
+      MYSQL_DATABASE: mydatabase # Initial database name
+      MYSQL_USER: user           # Optional: Create a new user
+      MYSQL_PASSWORD: userpassword  # Optional: User password
     ports:
-      - "3306:3306"
+      - "3306:3306"  # Expose MySQL on port 3306
     volumes:
-      - ./mysql_data:/var/lib/mysql
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - mysql_data:/var/lib/mysql  # Persist MySQL data
 
-  importer:
-    build: .
-    container_name: csv_importer
+  backend:
+    build: ./backend  # The directory containing your FastAPI app
+    container_name: backend
     depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./data:/app/data
+      - mysql_db  # Ensure MySQL starts before the backend
+    entrypoint: ["./wait-for-it.sh", "mysql_db:3306", "--", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
     environment:
-      MYSQL_HOST: db
+      MYSQL_HOST: mysql_db
       MYSQL_USER: root
       MYSQL_PASSWORD: root
       MYSQL_DATABASE: mydatabase
+    ports:
+      - "8001:8001"  # Expose FastAPI app on port 8001
+    volumes:
+      - ./backend:/app  # Mount the backend directory for live development
+
+  data_importer:
+    build: ./data_importer  # Path to CSV importer directory
+    container_name: data_importer
+    depends_on:
+      - mysql_db
+    entrypoint: ["./wait-for-it.sh", "mysql_db:3306", "--", "python", "create_tables.py"]  # Replace with actual CSV import command
+    environment:
+      MYSQL_HOST: mysql_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: mydatabase
+    volumes:
+      - ./data:/app/data
+
+volumes:
+  mysql_data:

@@ -3,12 +3,24 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy requirements and install
+# Install virtualenv to create isolated environments
+RUN pip install --no-cache-dir virtualenv
+
+# Create a virtual environment and activate it
+RUN virtualenv /venv
+ENV PATH="/venv/bin:$PATH"
+
+# Copy only the requirements.txt first to leverage Docker's cache
 COPY requirements.txt .
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy importer script
-COPY import_csvs.py .
+# Copy the backend app (FastAPI)
+COPY . .
 
-# Run the script when container starts
-CMD ["python", "import_csvs.py"]
+# Expose FastAPI app port
+EXPOSE 8001
+
+# Run the FastAPI app with Uvicorn when the container starts
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
