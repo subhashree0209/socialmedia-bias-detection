@@ -157,10 +157,12 @@ def related_posts():
     - user_id: string
     - title: string
     - post: string (post body/content)
-    - label: string ('left' or 'right')
+    - label: string ('left', 'right' or 'neutal')
     - subreddit: string
     
-    Returns: 2 neutral posts + 2 opposite leaning posts
+    Returns: 
+    - left/right leaning: 2 neutral posts + 2 opposite leaning posts
+    - neutral: 2 neutral posts + 1 left + 1 right leaning posts
     """
     try:
         # Get and validate input
@@ -181,8 +183,8 @@ def related_posts():
         if not leaning:
             return jsonify({"error": "label required"}), 400
 
-        if leaning not in ["left", "right"]:
-            return jsonify({"error": "label must be 'left' or 'right' for related posts"}), 400
+        if leaning not in ["left", "right", "neutral"]:
+            return jsonify({"error": "label must be 'left', 'right' or 'neutral' for related posts"}), 400
 
         subreddit = data.get("subreddit")
         if not subreddit:
@@ -210,24 +212,32 @@ def related_posts():
 
         # Separate posts by leaning
         neutral_posts = [p for p in posts if p["leaning"] == "neutral"]
-        target_leaning = "right" if leaning == "left" else "left"
-        opposite_posts = [p for p in posts if p["leaning"] == target_leaning]
+        left_posts = [p for p in posts if p["leaning"] == "left"]
+        right_posts = [p for p in posts if p["leaning"] == "right"]
 
         print(f"Found {len(neutral_posts)} neutral posts")
-        print(f"Found {len(opposite_posts)} {target_leaning}-leaning posts")
+        print(f"Found {len(left_posts)} {left_posts}-leaning posts")
+        print(f"Found {len(right_posts)} {right_posts}-leaning posts")
 
-        # Get top 2 from each
-        selected_neutral = neutral_posts[:2]
-        selected_opposite = opposite_posts[:2]
+        # Get related posts
+        if leaning == "left":
+            selected_neutral = neutral_posts[:2]
+            selected_opposite = right_posts[:2]
+        elif leaning == "right":
+            selected_neutral = neutral_posts[:2]
+            selected_opposite = left_posts[:2]
+        else:
+            selected_neutral = neutral_posts[:2]
+            selected_opposite = left_posts[:1] + right_posts[:1]
 
-        # Combine: 2 neutral + 2 opposite
+        # Combine: 
         related = selected_neutral + selected_opposite
 
         print(f"Returning {len(related)} total posts (2 neutral + 2 opposite)")
 
         # Return posts
         return jsonify({
-            "related_posts": related  # 2 neutral + 2 opposite
+            "related_posts": related  
         })
 
     except Exception as e:
@@ -336,7 +346,8 @@ if __name__ == "__main__":
     print("/api/related - Use this to update database (requires user_id, title, post, label, subreddit)")
     print("/api/recommend - Get recommendations based on bias tracking (requires title, post, label)")
     print("=" * 50)
-    print("Returns: 2 neutral + 2 opposite leaning posts")
+    print("left/right leaning posts returns related posts: 2 neutral + 2 opposite leaning posts")
+    print("neutral postsreturns related posts: 2 neutral + 1 of each leaning post")
     print("=" * 50 + "\n")
 
     app.run(host="0.0.0.0", port=8000, debug=True)
