@@ -265,6 +265,18 @@
   background-color: #2F66B2;
 }
 
+.related-item.left .related-bias {
+  background-color: #3B82F6; /* Blue tone for left */
+}
+
+.related-item.right .related-bias {
+  background-color: #E80C25; /* Red tone for right */
+}
+
+.related-item.neutral .related-bias {
+  background-color: #B67345; /* Brown tone for neutral */
+}
+
 html body a[href],
 html body a[href]:hover,
 html body a[href]:active,
