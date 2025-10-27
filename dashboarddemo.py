@@ -22,10 +22,10 @@ st.set_page_config(
 def get_db_connection():
     try:
         connection = mysql.connector.connect(
-            host=os.getenv('DB_HOST', 'localhost'),
-            database=os.getenv('DB_NAME', 'db'),
+            host=os.getenv('DB_HOST', 'db'),
+            database=os.getenv('DB_NAME', 'mydatabase'),
             user=os.getenv('DB_USER', 'root'),
-            password=os.getenv('DB_PASSWORD', ''),
+            password=os.getenv('DB_PASSWORD', 'root'),
             port=os.getenv('DB_PORT', '3306')
         )
         return connection
@@ -36,7 +36,7 @@ def get_db_connection():
 
 #Political spectrum data
 @st.cache_data(ttl=60)
-def get_political_spectrum_data(days_back=30):
+def get_political_spectrum_data():
     connection = get_db_connection()
     if connection is None:
         return None
@@ -66,9 +66,6 @@ def get_political_spectrum_data(days_back=30):
 #top subreddit data           
 @st.cache_data(ttl=60)
 def get_top_categories_data():
-    """
-    Fetch top content categories based on user activity
-    """
     connection = get_db_connection()
     if connection is None:
         return None
