@@ -701,7 +701,7 @@ function removeRelatedPostsButton() {
 
 
 
-// Make Related Posts button appear on correct pages
+// Make Related Posts button appear on correct pages (opened & bias labelled post)
 async function checkForBiasTaggedPost() {
   // check if opened post
   if (!isPostCommentsPage()) {

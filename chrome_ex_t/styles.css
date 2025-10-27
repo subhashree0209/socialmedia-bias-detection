@@ -257,24 +257,27 @@
   letter-spacing: 0.3px;    /* optional for balance */
 }
 
+/*
 .related-item.neutral .related-bias {
-  background-color:#B67345;
+  background-color:#696969;
 }
 
 .related-item.opposite .related-bias {
   background-color: #2F66B2;
 }
+*/
 
 .related-item.left .related-bias {
-  background-color: #3B82F6; /* Blue tone for left */
-}
+  background-color: #2F66B2;  
+} 
+
 
 .related-item.right .related-bias {
-  background-color: #E80C25; /* Red tone for right */
+  background-color: #E80C25; 
 }
 
 .related-item.neutral .related-bias {
-  background-color: #B67345; /* Brown tone for neutral */
+  background-color: #696969; 
 }
 
 html body a[href],
