@@ -7,9 +7,11 @@ from collections import defaultdict
 import praw
 import os
 from dotenv import load_dotenv
+from flask_cors import CORS 
 
 # --- FLASK APP ---
 app = Flask(__name__)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # --- LOAD MODEL ---
 model_path = './bias_detection_model_roberta'  # Update to your path
@@ -350,4 +352,4 @@ if __name__ == "__main__":
     print("neutral postsreturns related posts: 2 neutral + 1 of each leaning post")
     print("=" * 50 + "\n")
 
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8001, debug=True)
