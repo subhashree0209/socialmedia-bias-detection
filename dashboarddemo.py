@@ -23,7 +23,7 @@ def get_db_connection():
     try:
         connection = mysql.connector.connect(
             host=os.getenv('DB_HOST', 'localhost'),
-            database=os.getenv('DB_NAME', 'your_database_name'),
+            database=os.getenv('DB_NAME', 'db'),
             user=os.getenv('DB_USER', 'root'),
             password=os.getenv('DB_PASSWORD', ''),
             port=os.getenv('DB_PORT', '3306')
@@ -294,7 +294,7 @@ with col2:
     else:
         # Fallback data
         categories_data = pd.DataFrame({
-            'bias_label': ['Left', 'Right', 'Neutral'],
+            'bias_label': ['/politics', '/USpolitics', 'Askpolitics'],
             'post_count': [42, 65, 20]
         })
         y_data = [f"{label}" for label in categories_data['bias_label']]
