@@ -1,30 +1,58 @@
-version: "3.9"
-
+version: "3.8"
 services:
-  mysql_db:
+  db:
     image: mysql:8.0
     container_name: mysql_db
-    restart: unless-stopped
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root  # Only set root password
-      MYSQL_DATABASE: mydatabase # Initial database
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mydatabase
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./mysql_data:/var/lib/mysql
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  csv_importer:
+  importer:
     build: .
     container_name: csv_importer
     depends_on:
-      - mysql_db
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
     environment:
-      MYSQL_HOST: mysql_db
+      MYSQL_HOST: db
       MYSQL_USER: root
       MYSQL_PASSWORD: root
       MYSQL_DATABASE: mydatabase
-    volumes:
-      - ./data:/app/data
 
+  dashboarddemo:
+    build: dashboarddemo
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    depends_on:
+      - mysql_db
+    environment:
+      - DATABASE_URL=mysql+pymysql://root:root@mysql_db:3306/mydatabase
+      - STREAMLIT_SERVER_FILE_WATCHER_TYPE=poll
+    volumes:
+      - .:/app  # Hot reloading for development
+    networks:
+      - app-network
+
+# Volumes for data persistence
 volumes:
   mysql_data:
+
+# Network for service communication
+networks:
+  app-network:
+    driver: bridge
