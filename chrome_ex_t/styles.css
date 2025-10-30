@@ -155,19 +155,13 @@
     transition: transform 0.25s ease;
   }
 
-  /* Header */
-  .popup-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-  }
-
-  .popup-header h2 {
-    margin: 0;
-    font-size: 20px;
+  .popup-content h2 {
+    font-size: 1.6rem;
     font-weight: 700;
-    color: white;
+    color: #ffffff;
+    line-height: 1.4;
+    margin-bottom: 16px;
+    text-align: left; 
   }
 
   /* Post list */

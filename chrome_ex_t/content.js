@@ -19,7 +19,7 @@ if (!window.location.hostname.includes('reddit.com')) {
   function createToggleButton() {
     if (document.getElementById('bias-detector-toggle')) return;                            // Check if button already exists
   
-    const toggleContainer = document.createElement('div');a
+    const toggleContainer = document.createElement('div');
     toggleContainer.id = 'bias-detector-toggle';
     toggleContainer.innerHTML = `
       <div class="toggle-wrapper">
@@ -318,149 +318,144 @@ if (!window.location.hostname.includes('reddit.com')) {
     };
   }
 
+// ===== Detects what kind of page user is on (opened post, home feed, single word search results feed or >1 word search results feed)
+// ====== and adds bias labels accordingly
 
+const seenRecommendPosts = new Set(); // Prevent duplicate recommend calls
 
+async function scanPosts() {
+  if (!isEnabled) return;
 
+  const isOpenedPostPage = location.pathname.includes('/comments/');
 
+  // ============================
+  // 🧩 OPENED POST PAGE
+  // ============================
+  if (isOpenedPostPage) {
+    const openedPost = document.querySelector('[data-testid="post-container"], shreddit-post, .Post');
+    if (!openedPost) {
+      console.log('Opened post not found yet, waiting...');
+      return;
+    }
 
-  // ===== Detects what kind of page user is on (opened post, home feed, single word search results feed or >1 word search results feed) 
-  // ====== and adds bias labels accordingly
-  async function scanPosts() {
-    if (!isEnabled) return;
+    // Stop if already labeled (bias-indicator exists)
+    if (openedPost.querySelector('.bias-indicator')) {
+      console.log('Bias label already present — stopping further scans.');
+      return;
+    }
 
-    const isOpenedPostPage = location.pathname.includes('/comments/');
+    // Extract post title and body
+    const titleEl = openedPost.querySelector(
+      'h1[data-testid="post-title"], h1, h2, [data-click-id="title"]'
+    );
+    const title = titleEl?.innerText?.trim() || '';
 
-    // PUTING LABEL ON AN OPENED POST PAGE 
-    if (isOpenedPostPage) {
-      // locates the full post container by trying multiple selectors
-      const openedPost = document.querySelector('[data-testid="post-container"], shreddit-post, .Post');
-      if (!openedPost) {
-        console.log('Opened post not found yet, waiting...');
-        return; // Retry on next mutation
+    const bodyEl = openedPost.querySelector(
+      'shreddit-post-text-body, [data-testid="post-content"], .usertext-body'
+    );
+    const body = bodyEl?.innerText?.trim() || '';
+
+    const fullText = `${title}\n${body}`.trim();
+    if (fullText.length < 20) {
+      console.log('Post content too short — skipping.');
+      return;
+    }
+
+    // Classify post bias
+    const biasData = await analyzeBias(fullText, SINGLE_API_URL);
+    if (biasData && biasData.label) {
+      addBiasIndicator(openedPost, biasData);
+      console.log('Bias indicator added to opened post.');
+
+      // --- 🧩 Call recommend API (only once per post) ---
+      const label = biasData.label.toLowerCase();
+      if (["left", "right"].includes(label)) {
+        const postId = openedPost.id || title.slice(0, 100);
+        if (seenRecommendPosts.has(postId)) {
+          console.log("[Recommend] Skipping duplicate recommend for post:", postId);
+          return;
+        }
+        seenRecommendPosts.add(postId);
+
+        const user_id = (await getRedditUsername()) || "anonymous";
+        await checkBiasThreshold(user_id, title, body, label);
       }
+    } else {
+      console.log('No bias detected in opened post.');
+    }
 
-      //  if a post is already labeled, do not rescan the post
-      if (openedPost.querySelector('.bias-indicator')) {
-        console.log('Bias label already present — stopping further scans.');
-        return;
-      }
+    return; // Stop feed scanning when on a single post page
+  }
 
-      // locates post title by trying multiple selectors (multiple selectors to handle cases of outdated reddit pages and some webpages that follow different layouts)
-      const titleElement = openedPost.querySelector(
-        'h1[data-testid="post-title"], h1, h2, [data-click-id="title"]'
-      );
-      const title = titleElement?.innerText?.trim() || '';
+  // ============================
+  // 🧩 FEED / SEARCH PAGES
+  // ============================
 
-      // locates post body by trying multiple selectors
-      let bodyElement = openedPost.querySelector(
-        'shreddit-post-text-body, [data-testid="post-content"], .usertext-body'
-      );
-      let body = bodyElement?.innerText?.trim() || '';
+  // --- Regular feed posts ---
+  const posts = Array.from(document.querySelectorAll(
+    'shreddit-post, shreddit-search-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
+  )).slice(0, 15);
 
-      // shadow DOM as fallback (if standard DOM didn't return enough content) 
-      // - on some webpages, reddit's layouts have been changed to shadow DOM
-      // if (!body || body.length < 20) {
-      //   console.log('Body not found with standard DOM. Trying Shadow DOM...');
-      //   body = extractTextWithShadow(openedPost);
-      //   console.log('Shadow DOM extracted content length:', body.length);
-      // }
+  // --- Handle SDUI (single-word search) ---
+  const sduiUnits = document.querySelectorAll('[data-testid="sdui-post-unit"]');
+  for (const unit of sduiUnits) {
+    const t3id = getT3FromSduiUnit(unit);
+    if (!t3id || processedT3.has(t3id)) continue;
+    processedT3.add(t3id);
 
-      const fullText = `${title}\n${body}`.trim();
+    const full = await fetchFullPost(t3id);
+    if (!full) continue;
 
-      if (fullText.length < 20) {
-        return; // will retry automatically via MutationObserver 
-      }
-
-      
-      
-      //analyse text and insert label   
-      const biasData = await analyzeBias(fullText, SINGLE_API_URL);
+    const textContent = `${full.title}\n${full.selftext}`.trim();
+    if (textContent.length > 20) {
+      const biasData = await analyzeBias(textContent, BATCH_API_URL);
       if (biasData && biasData.label) {
-        addBiasIndicator(openedPost, biasData);
-        console.log('Bias indicator added to opened post.');
-      } else {
-        console.log('No bias detected in opened post.');
-      }
-
-      return; // smart stop: do not continue feed scanning
-    }
-
-
-
-    // FEED PAGE — fetch full post text via Reddit JSON API and generate labels, batching it to prevent too many request error
-    const posts = Array.from(document.querySelectorAll(    //getting post containers in a feed
-      'shreddit-post, shreddit-search-post, [data-testid="post-content"], [data-testid="search-post"], [role="article"], .entry .usertext-body'
-    )).slice(0, 15);
-
-
-    // Handle SDUI search results (only titles with no preview of post body)) 
-    // {HANDLES CASE OF USER MAKING SINGLE WORD SEARCHES (e.g. "government")}
-    const sduiUnits = document.querySelectorAll('[data-testid="sdui-post-unit"]');
-    for (const unit of sduiUnits) {
-      const t3id = getT3FromSduiUnit(unit);
-      if (!t3id || processedT3.has(t3id)) continue;
-      processedT3.add(t3id);
-
-      const full = await fetchFullPost(t3id);
-      if (!full) continue;
-
-      const textContent = `${full.title}\n${full.selftext}`.trim();
-      if (textContent.length > 20) {
-        const biasData = await analyzeBias(textContent, BATCH_API_URL);
-        if (biasData && biasData.label) {
-          addBiasIndicator(unit, biasData)
-        };
-      }
-    }
-
-    
-    // handles regular HOME FEED posts
-    for (const post of posts) {
-      const t3id = getPostId(post);
-      if (!t3id || processedT3.has(t3id)) continue;
-      processedT3.add(t3id);
-
-      const full = await fetchFullPost(t3id);
-      if (!full) continue;
-
-      const textContent = `${full.title}\n${full.selftext}`.trim();
-
-      if (textContent.length > 20) {
-       
-        const biasData = await analyzeBias(textContent, BATCH_API_URL);
-        if (biasData && biasData.label) {
-          addBiasIndicator(post, biasData);
-        }
-      }
-    }
-
-    // handles search results of >1 words (e.g. "I hate trump") 
-    // such search results feed has post titles and few lines of post body displayed
-    const searchResults = Array.from(document.querySelectorAll(
-      '[data-testid="search-post-with-content-preview"]'
-    )).slice(0, 15);
-
-    for (const post of searchResults) {
-      const t3id = getPostId(post);
-      if (!t3id || processedT3.has(t3id)) continue;
-      processedT3.add(t3id);
-
-      const full = await fetchFullPost(t3id);
-      if (!full) continue;
-
-      const textContent = `${full.title}\n${full.selftext}`.trim();
-
-      if (textContent.length > 20) {
-        const biasData = await analyzeBias(textContent, BATCH_API_URL);
-        if (biasData && biasData.label) {
-          addBiasIndicator(post, biasData);
-          console.log('Bias indicator added to SEARCH RESULT post:', t3id);
-        }
+        addBiasIndicator(unit, biasData);
       }
     }
   }
 
+  // --- Home feed posts ---
+  for (const post of posts) {
+    const t3id = getPostId(post);
+    if (!t3id || processedT3.has(t3id)) continue;
+    processedT3.add(t3id);
 
+    const full = await fetchFullPost(t3id);
+    if (!full) continue;
+
+    const textContent = `${full.title}\n${full.selftext}`.trim();
+    if (textContent.length > 20) {
+      const biasData = await analyzeBias(textContent, BATCH_API_URL);
+      if (biasData && biasData.label) {
+        addBiasIndicator(post, biasData);
+      }
+    }
+  }
+
+  // --- Multi-word search results ---
+  const searchResults = Array.from(document.querySelectorAll(
+    '[data-testid="search-post-with-content-preview"]'
+  )).slice(0, 15);
+
+  for (const post of searchResults) {
+    const t3id = getPostId(post);
+    if (!t3id || processedT3.has(t3id)) continue;
+    processedT3.add(t3id);
+
+    const full = await fetchFullPost(t3id);
+    if (!full) continue;
+
+    const textContent = `${full.title}\n${full.selftext}`.trim();
+    if (textContent.length > 20) {
+      const biasData = await analyzeBias(textContent, BATCH_API_URL);
+      if (biasData && biasData.label) {
+        addBiasIndicator(post, biasData);
+        console.log('Bias indicator added to SEARCH RESULT post:', t3id);
+      }
+    }
+  }
+}
 
   // async function scanPosts() {
   //   if (!isEnabled) return;
@@ -918,16 +913,13 @@ setInterval(() => {
 }, 400); // how often to check for url changes
 
 // ==============================================
-// MODAL POPUP (Bias Threshold + Post Click)
+// MODAL POPUP (Bias Threshold)
 // ==============================================
 
 const RECOMMEND_API = "http://127.0.0.1:8000/api/recommend";
-const viewedPosts = new Set();
-const sentRequests = new Set();
 
 // --- Ask backend if bias threshold reached ---
 async function checkBiasThreshold(user_id, title, post, label) {
-  // guard clause: if both empty, skip the API
   if (!title?.trim() && !post?.trim()) {
     console.warn("[Modal] Skipped /api/recommend — missing title and post.");
     return;
@@ -943,24 +935,36 @@ async function checkBiasThreshold(user_id, title, post, label) {
       body: JSON.stringify(payload),
     });
 
-    if (res.status === 204) return;
+    if (res.status === 204) {
+      console.log("[Modal] Bias threshold not reached yet.");
+      return;
+    }
+
     if (!res.ok) throw new Error(await res.text());
 
     const data = await res.json();
     if (data.bias_detected && data.recommendations?.length) {
+      console.log("[Modal] Bias threshold reached! Showing recommendations.");
       createOverlayPopup(data.recommendations);
+    } else {
+      console.log("[Modal] No recommendations returned yet.");
     }
   } catch (err) {
     console.error("[Modal] Backend error:", err);
   }
 }
 
-
-// --- Simple popup UI ---
+// --- Popup UI ---
 function createOverlayPopup(recommendations = []) {
+  if (!document || !document.body) return; // tab unloaded
   if (document.getElementById("overlay-popup")) return;
-
-  new Audio(chrome.runtime.getURL("sounds/sound1.mp3")).play().catch(() => {});
+  
+  try {
+    const soundUrl = chrome?.runtime?.getURL?.("sounds/sound1.mp3");
+    if (soundUrl) new Audio(soundUrl).play().catch(() => {});
+  } catch (e) {
+    console.warn("[Modal] Sound skipped — extension context unavailable");
+  }
 
   document.body.classList.add("no-interactions");
 
@@ -993,62 +997,13 @@ function createOverlayPopup(recommendations = []) {
   requestAnimationFrame(() => (overlay.style.opacity = "1"));
 
   const close = () => {
-      overlay.style.opacity = "0";
-      setTimeout(() => {
-        overlay.remove();
-        document.body.classList.remove("no-interactions"); // re-enable Related button
-      }, 250);
-    };
+    overlay.style.opacity = "0";
+    setTimeout(() => {
+      overlay.remove();
+      document.body.classList.remove("no-interactions");
+    }, 250);
+  };
+
   overlay.querySelector("#ok-button").addEventListener("click", close);
   overlay.querySelectorAll(".post-link").forEach((l) => l.addEventListener("click", close));
-}; 
-
-// --- Handle post clicks ---
-document.addEventListener("click", async (e) => {
-  const link = e.target.closest('a[href*="/comments/"]');
-  if (!link) return;
-
-  const postEl = e.target.closest(
-  '[data-testid="post-container"], shreddit-post, [data-testid="post-content"], [data-testid="search-post"], shreddit-search-post');
-  if (!postEl) return;
-
-  await new Promise((r) => setTimeout(r, 300));
-
-  const label = postEl.dataset.biasLabel?.toLowerCase();
-  if (!["left", "right"].includes(label)) return;
-
-  const postId = link.href;
-  if (viewedPosts.has(postId)) return;
-  viewedPosts.add(postId);
-
-  const idMatch = link.href.match(/\/comments\/([a-z0-9]+)\b/i);
-  const shortId = idMatch?.[1];
-
-  let title = "", body = "";
-
-  // Try Reddit JSON API first
-  if (shortId) {
-    try {
-      const r = await fetch(`https://www.reddit.com/comments/${shortId}.json?raw_json=1`);
-      if (r.ok) {
-        const j = await r.json();
-        const data = j?.[0]?.data?.children?.[0]?.data || {};
-        title = data.title || "";
-        body = data.selftext || "";
-      }
-    } catch {}
-  }
-
-  // Fallbacks
-  if (!title) title = postEl.querySelector("h1,h2,[data-click-id='title']")?.innerText?.trim() || "";
-  if (!body) body = postEl.querySelector("shreddit-post-text-body,.usertext-body")?.innerText?.trim() || "";
-  if (!title && !body) title = link.innerText?.trim() || "Unknown Post";
-
-  const user_id = (await getRedditUsername()) || "anonymous";
-  await checkBiasThreshold(user_id, title, body, label);
-});
-
-// Dummy username fetch (replace with your real one)
-async function getRedditUsername() {
-  return "anonymous";
 }
