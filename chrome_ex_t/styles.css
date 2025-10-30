@@ -113,6 +113,8 @@
   
   /* Threshold Modal */
   
+  /* Force overlay to be topmost and block all clicks underneath */
+  /* === Force overlay to be above all UI === */
   .overlay-popup {
     position: fixed;
     top: 0;
@@ -121,12 +123,21 @@
     height: 100vh;
     background-color: rgba(0, 0, 0, 0.4);
     backdrop-filter: blur(3px);
-    z-index: 2147483647;
+    z-index: 999999999 !important;  /* highest possible */
+    pointer-events: all !important; /* capture all clicks */
     display: flex;
     justify-content: center;
     align-items: center;
     opacity: 0;
     transition: opacity 0.25s ease;
+  }
+
+  /* Disable related button/panel while overlay is open */
+  body.no-interactions #related-posts-btn,
+  body.no-interactions #related-posts-panel {
+    pointer-events: none !important;
+    visibility: hidden !important;   /* completely hides them */
+    opacity: 0 !important;
   }
 
   /* Popup box */
@@ -266,6 +277,7 @@
   line-height: 1;                /* ensures text itself is centered */
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
   box-shadow:  0 2px 12px rgba(0, 0, 0, 0.15); 
+  z-index: 9999
 }
 
 .related-btn:hover {
@@ -287,6 +299,7 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 2147483639
 }
 
 .related-panel.show {

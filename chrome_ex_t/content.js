@@ -962,6 +962,8 @@ function createOverlayPopup(recommendations = []) {
 
   new Audio(chrome.runtime.getURL("sounds/sound1.mp3")).play().catch(() => {});
 
+  document.body.classList.add("no-interactions");
+
   const overlay = document.createElement("div");
   overlay.className = "overlay-popup";
 
@@ -991,20 +993,23 @@ function createOverlayPopup(recommendations = []) {
   requestAnimationFrame(() => (overlay.style.opacity = "1"));
 
   const close = () => {
-    overlay.style.opacity = "0";
-    setTimeout(() => overlay.remove(), 250);
-  };
-
+      overlay.style.opacity = "0";
+      setTimeout(() => {
+        overlay.remove();
+        document.body.classList.remove("no-interactions"); // re-enable Related button
+      }, 250);
+    };
   overlay.querySelector("#ok-button").addEventListener("click", close);
   overlay.querySelectorAll(".post-link").forEach((l) => l.addEventListener("click", close));
-}
+}; 
 
 // --- Handle post clicks ---
 document.addEventListener("click", async (e) => {
   const link = e.target.closest('a[href*="/comments/"]');
   if (!link) return;
 
-  const postEl = e.target.closest('[data-testid="post-container"], shreddit-post, [data-testid="post-content"]');
+  const postEl = e.target.closest(
+  '[data-testid="post-container"], shreddit-post, [data-testid="post-content"], [data-testid="search-post"], shreddit-search-post');
   if (!postEl) return;
 
   await new Promise((r) => setTimeout(r, 300));
