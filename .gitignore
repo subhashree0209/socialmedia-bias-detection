@@ -1,2 +1,11 @@
 .DS_Store
+<<<<<<< HEAD
+*.DS_Store
+
+.env
+*.env
+=======
 .DS_Store
+>>>>>>> frontend
+.DS_Store
+*.DS_Store

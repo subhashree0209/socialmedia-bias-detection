@@ -100,8 +100,19 @@ if (!window.location.hostname.includes('reddit.com')) {
         btnCon.style.bottom = '20px';
         btnCon.style.right = '20px';
         btnCon.style.zIndex = '9999';
+        btnCon.style.display = "flex";
 
-        btnCon.innerHTML = '<button style="padding: 10px 16px 10px 16px; background-color: #ff4500; color: white; border-radius:6px; cursor:pointer;"> View Dashboard </button>'
+        btnCon.innerHTML = `<button 
+                             style="padding: 10px 16px 10px 16px; 
+                             background-color: #ff4500; 
+                             color: white; 
+                             border-radius:6px; 
+                             cursor:pointer; 
+                             display:flex; 
+                             justify-content: center; 
+                             align-items: center"> 
+                             View Dashboard 
+                             </button>`
         
         document.body.appendChild(btnCon)
         const button = btnCon.querySelector('button')
