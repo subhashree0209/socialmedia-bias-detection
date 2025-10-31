@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 300px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      margin: 0;
+    }
+    h2 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      color: #333;
+    }
+    .info {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #666;
+      margin-bottom: 12px;
+    }
+    .legend {
+      margin-top: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 6px 0;
+      font-size: 13px;
+    }
+    .color-box {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      margin-right: 8px;
+    }
+    .left { background-color: #2F66B2; }
+    .neutral { background-color: #696969; }
+    .right { background-color: #e80c25; }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #ff4500;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 12px;
+    }
+    button:hover {
+      background-color: #cc3700;
+    }
+  </style>
+</head>
+<body>
+  <h2>🔍 Reddit Bias Detector</h2>
+  
+  <div class="info" id="statusMessage">
+    This extension highlights potential bias in Reddit posts and comments.
+  </div>
+  
+  <div class="legend" id="legendSection">
+    <strong>Bias Levels:</strong>
+    <div class="legend-item" >
+      <div class="color-box left"></div>
+      <span>Left Wing</span>
+    </div>
+    <div class="legend-item">
+      <div class="color-box right"></div>
+      <span>Right Wing</span>
+    </div>
+    <div class="legend-item">
+      <div class="color-box neutral"></div>
+      <span>Neutral</span>
+    </div>
+  </div>
+
+  <!-- <button id="rescanBtn">Rescan Page</button> -->
+  <button id="dashboardBtn">View Dashboard</button>
+  <script src="popup.js"></script>
+  
+</body>
+</html>

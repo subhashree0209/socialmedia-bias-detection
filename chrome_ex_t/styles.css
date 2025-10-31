@@ -1,0 +1,437 @@
+
+
+
+
+/* Styles for bias indicators */
+
+
+.bias-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-left: 4px solid;
+  }
+  
+  .bias-left {
+    background-color: #2F66B2;
+    border-left-color: #011d43;
+    color: #ffffff;
+  }
+  
+  .bias-neutral {
+    background-color: #696969;
+    border-left-color: #1b1b1b;
+    color: #ffffff;
+  }
+  
+  .bias-right {
+    background-color: #E80C25;
+    border-left-color: #8f0111;
+    color: #ffffff;
+  }
+  
+  .bias-badge {
+    font-weight: 700;
+  }
+  
+  /* Toggle button on Reddit page */
+  #bias-detector-toggle {
+    position: fixed;
+    top: 60px;
+    right: 20px;
+    z-index: 9999;
+    background: white;
+    padding: 12px 16px;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    border: 1px solid #e0e0e0;
+  }
+  
+  .toggle-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .toggle-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1c1c1c;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  }
+  
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+  
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .toggle-slider {
+    position: absolute;
+    cursor: default;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #4CAF50;
+    transition: .3s;
+    border-radius: 24px;
+  }
+  
+  .toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+  
+  .toggle-switch input:checked + .toggle-slider {
+    background-color: #dc3545;
+  }
+  
+  .toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(26px);
+  }
+  
+  /* Threshold Modal */
+  
+  /* Force overlay to be topmost and block all clicks underneath */
+  /* === Force overlay to be above all UI === */
+  .overlay-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(3px);
+    z-index: 999999999 !important;  /* highest possible */
+    pointer-events: all !important; /* capture all clicks */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+
+  /* Disable related button/panel while overlay is open */
+  body.no-interactions #related-posts-btn,
+  body.no-interactions #related-posts-panel {
+    pointer-events: none !important;
+    visibility: hidden !important;   /* completely hides them */
+    opacity: 0 !important;
+  }
+
+  /* Popup box */
+  .popup-content {
+    background-color: #FF5700;
+    border-radius: 20px;
+    padding: 24px 28px;
+    width: 600px;
+    max-width: 90%;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    font-family: sans-serif;
+    color: white;
+    line-height: 1.6;
+    transform: scale(0.95);
+    transition: transform 0.25s ease;
+  }
+
+  .popup-content h2 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.4;
+    margin-bottom: 16px;
+    text-align: left; 
+  }
+
+  /* Post list */
+  .popup-posts {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  /* Individual post row */
+  .post-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 12px;
+  }
+
+  /* Post link */
+  .post-link {
+    color: white;
+    text-decoration: underline;
+    font-size: 16px;
+    font-weight: 500;
+    word-wrap: break-word;
+    max-width: 80%;
+  }
+
+  /* Label badges */
+  .label {
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 5px;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+    min-width: 65px;
+    text-align: center;
+  }
+
+  .label.left {
+    background-color: #2F66B2;
+  }
+
+  .label.right {
+    background-color: #e80c25;
+  }
+
+  .label.neutral {
+    background-color: #696969;
+  }
+  
+  .popup-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 20px;
+  }
+
+  .ok-button {
+    background-color: rgba(0, 0, 0, 0.2);
+    color: white;
+    padding: 10px 18px;
+    border: none;
+    border-radius: 60px;
+    font-family: sans-serif;
+    font-weight: 600;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .ok-button:hover {
+    background-color: rgba(0, 0, 0, 0.35);
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* === Related Posts Feature === */
+
+.related-btn {
+  display: flex;                 /* allows vertical centering */
+  align-items: center;           /* centers text vertically */
+  justify-content: center;       /* centers text horizontally (optional) */
+  height: 36px;                  /* consistent button height */
+  padding: 0 14px;               
+  background-color: #ff4500;     /* Reddit red */
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: default;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;                /* ensures text itself is centered */
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  box-shadow:  0 2px 12px rgba(0, 0, 0, 0.15); 
+  z-index: 9999
+}
+
+.related-btn:hover {
+  background-color: #cc3700; /* darker on hover */
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18); /* subtle lift */
+}
+
+
+/* Dropdown panel base (clean logical positioning) */
+.related-panel {
+  position: fixed; 
+  z-index: 2147483646;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 10px;
+  width: 340px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 2147483639
+}
+
+.related-panel.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+
+
+/* When visible (slide + fade in) */
+.related-panel.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+
+
+/* make top section of related posts panel red */
+.related-panel__header {
+  background-color: #ff4500;   
+  color: #fff;
+  padding: 10px 12px;
+
+  margin: -10px -10px 10px;    /* top/right/bottom/left */
+  border-radius: 8px 8px 0 0;  /* round only the top corners */
+
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.related-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;      /* ← changed from flex-start */
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #eee;
+}
+
+
+.related-item:last-child {
+  border-bottom: none;
+}
+
+.related-item:hover {
+  background-color: #f6f7f8;
+}
+
+/* Post title styling */
+.related-item a {
+  text-decoration: none;
+  color: #222;
+  font-size: 13px;
+  flex: 1;                      /* title grows to fill remaining space */
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+
+/* Bias tag styling */
+.related-bias {
+  flex-shrink: 0;               /* tag never shrinks */
+  display: inline-block;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 4px;
+  color: white;
+  text-align: center;
+  width: 80px;                  /* fixed tag width */
+  box-sizing: border-box;
+  white-space: nowrap;          /* prevent tag text wrapping */
+}
+
+
+
+
+.related-item:hover {
+  background-color: #f6f7f8;
+}
+
+.related-bias {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  text-align: center;
+  width: 75px;              /* consistent width */
+  box-sizing: border-box;   /* includes padding in width calculation */
+  letter-spacing: 0.3px;    /* optional for balance */
+}
+
+/*
+.related-item.neutral .related-bias {
+  background-color:#696969;
+}
+
+.related-item.opposite .related-bias {
+  background-color: #2F66B2;
+}
+*/
+
+.related-item.left .related-bias {
+  background-color: #2F66B2;  
+} 
+
+
+.related-item.right .related-bias {
+  background-color: #E80C25; 
+}
+
+.related-item.neutral .related-bias {
+  background-color: #696969; 
+}
+
+html body a[href],
+html body a[href]:hover,
+html body a[href]:active,
+html body a[href]:focus-visible {
+  cursor: default;
+}
+
+/* Floating position for the Related Posts button */
+#related-posts-btn {
+  position: fixed;
+  top: 60px;   
+  right: 363px;  
+  z-index: 2147483647; 
+}
+
+
+
+
+
+
+
+
+
