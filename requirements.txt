@@ -1,0 +1,10 @@
+fastapi
+pydantic
+flask
+transformers>=4.37
+torch
+pandas
+python-dotenv
+praw
+uvicorn
+keybert
