@@ -1,0 +1,62 @@
+version: "3.9"
+
+services:
+  mysql_db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: mydatabase
+      MYSQL_USER: user
+      MYSQL_PASSWORD: userpassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    build:
+      context: .         # build from current folder
+      dockerfile: Dockerfile  # use the single global Dockerfile
+    container_name: backend
+    depends_on:
+      - mysql_db
+    working_dir: /app/backend   # where your FastAPI code lives
+    command: python -m uvicorn reco:app --host 0.0.0.0 --port 8001 --reload
+    environment:
+      MYSQL_HOST: mysql_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: mydatabase
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app  # so code changes reflect live
+
+  data_importer:
+    build:
+      context: .         # reuse same Dockerfile
+      dockerfile: Dockerfile
+    container_name: data_importer
+    depends_on:
+      - mysql_db
+    working_dir: /app   # run from root
+    command: python create_tables.py
+    environment:
+      MYSQL_HOST: mysql_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: mydatabase
+    volumes:
+      - .:/app
+
+volumes:
+  mysql_data:
+
+
+
+# Network for service communication
+networks:
+  app-network:
+    driver: bridge

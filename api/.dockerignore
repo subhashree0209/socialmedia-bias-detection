@@ -1,0 +1,24 @@
+# Ignore Git repo
+.git
+.gitignore
+
+# Ignore environment files
+.env
+
+# Ignore model checkpoints (optional)
+*.pt
+*.bin
+*.zip
+*.tar
+*.gz
+
+# Ignore caches and temp data
+__pycache__
+*.pyc
+*.pyo
+*.tmp
+*.log
+.cache
+venv/
+.env/
+node_modules/
