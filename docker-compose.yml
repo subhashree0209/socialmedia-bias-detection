@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  # --------------------
+  # MySQL Database
+  # --------------------
+  database:
+    image: mysql:8.0
+    container_name: socialmedia-database
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: socialmedia
+      MYSQL_USER: kevin
+      MYSQL_PASSWORD: kevin123
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./backend/database/data:/var/lib/mysql
+    networks:
+      - socialmedia-net
+
+  # --------------------
+  # Database Seeder (runs create_tables.py once)
+  # --------------------
+  db-seeder:
+    build:
+      context: ./backend/database
+      dockerfile: Dockerfile
+    container_name: socialmedia-db-seeder
+    depends_on:
+      - database
+    environment:
+      DB_HOST: database
+      DB_PORT: 3306
+      DB_USER: kevin
+      DB_PASSWORD: kevin123
+      DB_NAME: socialmedia
+    command: ["python", "create_tables.py"]
+    networks:
+      - socialmedia-net
+
+  # --------------------
+  # Backend API (FastAPI)
+  # --------------------
+  api:
+    build:
+      context: ./backend/api
+      dockerfile: Dockerfile
+    container_name: socialmedia-api
+    env_file:
+      - ./backend/api/.env.example
+    ports:
+      - "8000:8000"
+    depends_on:
+      - database
+      - db-seeder
+    networks:
+      - socialmedia-net
+
+  # --------------------
+  # Frontend (Streamlit)
+  # --------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: socialmedia-frontend
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+    networks:
+      - socialmedia-net
+
+# --------------------
+# Shared Network
+# --------------------
+networks:
+  socialmedia-net:
+    driver: bridge
