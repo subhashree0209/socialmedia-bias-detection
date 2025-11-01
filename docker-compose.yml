@@ -16,7 +16,7 @@ services:
     ports:
       - "3306:3306"
     volumes:
-      - ./backend/database/data:/var/lib/mysql
+      - socialmedia-mysql:/var/lib/mysql
     networks:
       - socialmedia-net
 
@@ -79,3 +79,9 @@ services:
 networks:
   socialmedia-net:
     driver: bridge
+
+# --------------------
+# Docker-managed volumes
+# --------------------
+volumes:
+  socialmedia-mysql:
