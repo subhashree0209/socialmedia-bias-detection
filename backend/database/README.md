@@ -1,400 +1,129 @@
 # DSA3101 Group Project - Database Setup
 
-This repository contains the scripts and Docker configuration to set up a MySQL database and import CSV files for the DSA3101 Group Project.
+A FastAPI application containerized with Docker that manages Reddit posts, news articles, and user activity data with MySQL as the backend database.
 
-## 🚀 Quick Start
+## Overview
 
-```bash
-# Clone the repository
-git clone <repository_url>
-cd create_database
+This application provides a REST API built with FastAPI and uses MySQL for data persistence. It includes automated database initialization and data loading from CSV files.
 
-# Build and start everything with one command
-docker-compose up --build
+## Features
 
-# Access the database
-docker exec -it mysql_db mysql -u root -proot
-```
+- **FastAPI Backend**: High-performance REST API framework
+- **MySQL Integration**: Robust relational database storage
+- **Automated Data Loading**: Imports Reddit posts and news articles from CSV files
+- **User Activity Tracking**: Monitors user interactions and recommendations
+- **Containerized Deployment**: Easy deployment with Docker
 
----
+## Prerequisites
 
-## 📋 Table of Contents
-- [Project Structure](#project-structure)
-- [Requirements](#requirements)
-- [Setup Instructions](#setup-instructions)
-- [Usage](#usage)
-- [Database Configuration](#database-configuration)
-- [Data Format Requirements](#data-format-requirements)
-- [Troubleshooting](#troubleshooting)
-- [Cleanup](#cleanup)
-- [Authors](#authors)
+- Docker
+- Docker Compose (if using multi-container setup)
+- CSV data files in the `data/` directory
 
----
-
-## 📁 Project Structure
+## Directory Structure
 
 ```
-database/
+.
+├── Dockerfile
+├── requirements.txt
+├── create_tables.py  # Contains both DB initialization and FastAPI app
+├── .gitignore
 ├── data/
 │   ├── unlabelled_data_clean.csv
 │   ├── labelled_data_part1.csv
 │   ├── labelled_data_part2.csv
-│   ├── ...
-│   └── labelled_data_part10.csv
-├── Dockerfile
-├── docker-compose.yml
-├── import_csvs.py
-├── requirements.txt
+│   └── ... (labelled_data_part3-10.csv)
 └── README.md
 ```
 
-### File Descriptions
+## Environment Variables
 
-| File/Folder | Description |
-|-------------|-------------|
-| `data/` | Contains CSV files to be imported into the MySQL database |
-| `Dockerfile` | Defines the Python environment for the CSV importer |
-| `docker-compose.yml` | Orchestrates the MySQL database and importer containers |
-| `import_csvs.py` | Python script that imports CSV files into the database |
-| `requirements.txt` | Python dependencies (pandas, pymysql, sqlalchemy, cryptography) |
+Configure the following environment variables for database connection:
 
----
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DB_HOST` | MySQL database host | `database` |
+| `DB_USER` | Database username | `root` |
+| `DB_PASSWORD` | Database password | `root` |
+| `DB_NAME` | Database name | `mydatabase` |
+| `DB_PORT` | Database port | `3306` |
 
-## 💻 Requirements
+## Database Schema
 
-- **Docker** (version 20.10 or later)
-- **Docker Compose** (version 2.0 or later)
-- **Internet connection** (to download Python packages and Docker images)
-- **Minimum 2GB free disk space**
+### Tables
 
-### Check if Docker is installed:
+#### `redditposts`
+Stores unlabelled Reddit post data from `unlabelled_data_clean.csv`.
 
-```bash
-docker --version
-docker-compose --version
-```
+#### `newsarticles`
+Stores labelled news article data from `labelled_data_part1.csv` through `labelled_data_part10.csv`.
 
----
+#### `user_activity`
+Tracks user interactions and recommendation triggers.
 
-## 🔧 Setup Instructions
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | INT (Primary Key) | Auto-incrementing identifier |
+| `user_id` | VARCHAR(255) | User identifier |
+| `title` | VARCHAR(255) | Post/article title |
+| `body` | TEXT | Content body |
+| `bias_label` | VARCHAR(50) | Bias classification label |
+| `subreddit` | VARCHAR(255) | Source subreddit |
+| `threshold_reached` | BOOLEAN | Whether threshold was reached |
+| `recommendation_triggered` | BOOLEAN | Whether recommendation was sent |
+| `recommended_post_urls` | TEXT | URLs of recommended posts |
+| `timestamp` | TIMESTAMP | Activity timestamp |
 
-### Step 1: Clone the Repository
+## Application Architecture
 
-```bash
-git clone <repository_url>
-cd create_database
-```
+The `create_tables.py` file serves dual purposes:
 
-### Step 2: Prepare Your CSV Files
+1. **Database Initialization** (runs on startup):
+   - Establishes connection to MySQL with retry logic (up to 10 attempts)
+   - Loads `unlabelled_data_clean.csv` into `redditposts` table
+   - Combines all `labelled_data_part*.csv` files into `newsarticles` table
+   - Creates the `user_activity` table for tracking user interactions
 
-Ensure your CSV files are in the `data/` directory:
-- `unlabelled_data_clean.csv` → will be imported into redditposts
-- `labelled_data_part1.csv` → `labelled_data_part10.csv` → will be combined into newsarticles
+2. **FastAPI Application**: Hosts the REST API endpoints for the application
 
-### Step 3: Build and Start the Containers
+## API Access
 
-```bash
-docker-compose up --build
-```
+Once running, the FastAPI application is accessible at:
 
-This command will:
-1. ✅ Pull the MySQL 8.0 Docker image
-2. ✅ Build the Python importer container
-3. ✅ Start the MySQL database
-4. ✅ Wait for MySQL to be ready
-5. ✅ Import CSV files into the database
-6. ✅ Exit the importer container automatically
+- **Base URL**: `http://localhost:8001`
+- **API Documentation**: `http://localhost:8001/docs` (Swagger UI)
+- **Alternative Docs**: `http://localhost:8001/redoc` (ReDoc)
 
-### Step 4: Verify Setup
+## Data Requirements
 
-Check that the MySQL container is running:
+Ensure the following CSV files are present in the `data/` directory:
 
-```bash
-docker ps
-```
+- `unlabelled_data_clean.csv` - Reddit posts without labels
+- `labelled_data_part1.csv` through `labelled_data_part10.csv` - Labelled news articles
 
-You should see a container named `mysql_db` in the list.
+## Troubleshooting
 
----
+### Database Connection Issues
 
-## 🎯 Usage
+If the application fails to connect to MySQL:
 
-### Accessing the MySQL Database
+- Verify MySQL is running and accessible
+- Check environment variables are correctly set
+- Ensure the database specified in `DB_NAME` exists (mydatabase)
+- Review logs: `docker logs socialmedia-api`
 
-#### Option 1: Using Docker Exec
+### Missing Data Files
 
-```bash
-docker exec -it mysql_db mysql -u root -prootpassword
-```
+If CSV files are not found, check:
 
-#### Option 2: Using MySQL Client (if installed locally)
+- Files are in the `data/` directory
+- File names match exactly (case-sensitive)
+- Files are copied into the container during build
 
-```bash
-mysql -h 127.0.0.1 -P 3306 -u root -prootpassword
-```
+### Port Conflicts
 
-### Running SQL Queries
-
-Once connected to MySQL:
-
-```sql
--- Show all databases
-SHOW DATABASES;
-
--- Use your database
-USE mydatabase;
-
--- Show all tables
-SHOW TABLES;
-
--- View labelled data
-SELECT * FROM newsarticles LIMIT 10;
-
--- View unlabelled data
-SELECT * FROM redditposts LIMIT 10;
-
--- Check table structure
-DESCRIBE newsarticles;
-DESCRIBE redditposts;
-
--- Count records
-SELECT COUNT(*) FROM newsarticles;
-SELECT COUNT(*) FROM redditposts;
-```
-
-### Re-importing CSV Files
-
-If you update the CSV files and need to re-import:
+If port 8001 is already in use:
 
 ```bash
-# Stop the current containers
-docker-compose down
-
-# Re-run the importer
-docker-compose up
+docker run -d -p 8002:8001 ... # Use different host port
 ```
-
-Or, to only re-run the importer without rebuilding:
-
-```bash
-docker-compose run --rm csv_importer
-```
-
----
-
-## ⚙️ Database Configuration
-
-### Connection Details
-
-| Parameter | Value |
-|-----------|-------|
-| **Host** | `localhost` or `127.0.0.1` |
-| **Port** | `3306` |
-| **Database** | `dsa3101_db` |
-| **Username** | `root` |
-| **Password** | `root` |
-
-### Tables Created
-
-1. **newsarticles**
-   - Contains the cleaned labelled dataset
-   - Table structure matches CSV columns
-   
-2. **redditposts**
-   - Contains the cleaned unlabelled dataset
-   - Table structure matches CSV columns
-
-### Modifying Configuration
-
-To change database credentials, edit `docker-compose.yml`:
-
-```yaml
-environment:
-  MYSQL_ROOT_PASSWORD: your_new_password
-  MYSQL_DATABASE: your_database_name
-```
-
-**Important:** If you change credentials, also update them in `import_csvs.py`.
-
----
-
-## 📊 Data Format Requirements
-
-### CSV File Requirements
-
-- **File Format:** UTF-8 encoded CSV
-- **Headers:** First row must contain column names
-- **Delimiter:** Comma (`,`)
-- **Missing Values:** Empty cells are imported as NULL
-
-### Adding New CSV Files
-
-1. Place your CSV file in the `data/` directory
-2. Update `import_csvs.py` to include your new file:
-
-```python
-csv_files = {
-    'newsarticles': ['data/labelled_data_part1.csv', 'data/labelled_data_part2.csv'],
-    'redditposts': 'data/unlabelled_data_clean.csv',
-    'your_new_table': 'data/your_new_file.csv'  # Add this line
-}
-```
-
-3. Re-run the importer:
-
-```bash
-docker-compose run --rm csv_importer
-```
-
----
-
-## 🔍 Troubleshooting
-
-### Common Issues and Solutions
-
-#### Issue 1: Port 3306 Already in Use
-
-**Error Message:**
-```
-Error starting userland proxy: listen tcp4 0.0.0.0:3306: bind: address already in use
-```
-
-**Solution:**
-```bash
-# Option 1: Stop local MySQL service
-sudo systemctl stop mysql  # Linux
-brew services stop mysql   # macOS
-
-# Option 2: Change the port in docker-compose.yml
-ports:
-  - "3307:3306"  # Use port 3307 instead
-```
-
-#### Issue 2: Cryptography Package Error
-
-**Error Message:**
-```
-RuntimeError: 'cryptography' package is required
-```
-
-**Solution:**
-Already included in `requirements.txt`. If the error persists, rebuild:
-```bash
-docker-compose down
-docker-compose up --build
-```
-
-#### Issue 3: MySQL Container Not Starting
-
-**Solution:**
-```bash
-# Check container logs
-docker logs mysql_db
-
-# Remove old volumes and restart
-docker-compose down -v
-docker-compose up --build
-```
-
-#### Issue 4: CSV Import Fails
-
-**Error Message:**
-```
-FileNotFoundError: [Errno 2] No such file or directory
-```
-
-**Solution:**
-- Verify CSV files exist in the `data/` directory
-- Check file names match exactly (case-sensitive)
-- Ensure CSV files are not corrupted
-
-#### Issue 5: Docker Compose Version Warning
-
-**Warning Message:**
-```
-version is obsolete
-```
-
-**Solution:**
-This warning can be safely ignored. The configuration works with both old and new Docker Compose versions.
-
-### Getting Help
-
-If you encounter other issues:
-1. Check Docker logs: `docker logs mysql_db` and `docker logs csv_importer`
-2. Verify Docker is running: `docker ps`
-3. Check disk space: `df -h`
-
----
-
-## 🧹 Cleanup
-
-### Stop Containers (Keep Data)
-
-```bash
-docker-compose down
-```
-
-### Stop Containers and Remove Data
-
-```bash
-# WARNING: This will delete all data in the database
-docker-compose down -v
-```
-
-### Remove Docker Images
-
-```bash
-# List images
-docker images
-
-# Remove the importer image
-docker rmi create_database-csv_importer
-
-# Remove MySQL image (optional)
-docker rmi mysql:8.0
-```
-
-### Complete Cleanup
-
-```bash
-# Stop and remove everything
-docker-compose down -v
-docker system prune -a
-```
-
----
-
-## 👥 Authors
-
-- **Kevin Zhu Chun Yin**
-- [Add other group members here]
-
----
-
-## 📝 License
-
-[Specify your license here, e.g., MIT License]
-
----
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/YourFeature`
-3. Commit your changes: `git commit -m 'Add YourFeature'`
-4. Push to the branch: `git push origin feature/YourFeature`
-5. Open a Pull Request
-
----
-
-## 📚 Additional Resources
-
-- [Docker Documentation](https://docs.docker.com/)
-- [MySQL Documentation](https://dev.mysql.com/doc/)
-- [Pandas Documentation](https://pandas.pydata.org/docs/)
-- [SQLAlchemy Documentation](https://docs.sqlalchemy.org/)
-
----
-
-**Last Updated:** October 2025
