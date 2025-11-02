@@ -1,66 +1,71 @@
-version: "3.9"
-
 services:
-  # --------------------
   # MySQL Database
-  # --------------------
   database:
     image: mysql:8.0
-    container_name: socialmedia-database
-    restart: always
+    container_name: mysql_db
+    restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: socialmedia
-      MYSQL_USER: kevin
-      MYSQL_PASSWORD: kevin123
+      MYSQL_DATABASE: mydatabase
     ports:
       - "3306:3306"
     volumes:
-      - socialmedia-mysql:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     networks:
       - socialmedia-net
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
-  # --------------------
+
   # Database Seeder (runs create_tables.py once)
-  # --------------------
   db-seeder:
     build:
       context: ./backend/database
       dockerfile: Dockerfile
     container_name: socialmedia-db-seeder
+    restart: "no"
     depends_on:
-      - database
+      database:
+        condition: service_healthy  # Wait for healthcheck to pass
     environment:
-      DB_HOST: db
+      DB_HOST: database
       DB_PORT: 3306
-      DB_USER: kevin
-      DB_PASSWORD: kevin123
-      DB_NAME: socialmedia
+      DB_USER: root
+      DB_PASSWORD: root
+      DB_NAME: mydatabase
     command: ["python", "create_tables.py"]
     networks:
       - socialmedia-net
 
-  # --------------------
+
   # Backend API (FastAPI)
-  # --------------------
   api:
     build:
       context: ./backend/api
       dockerfile: Dockerfile
     container_name: socialmedia-api
+    restart: on-failure
+    environment:
+      DATABASE_URL: mysql+pymysql://root:root@database:3306/mydatabase
     env_file:
-      - ./backend/api/.env.example
+      - ./backend/api/.env
     ports:
       - "8000:8000"
     depends_on:
-      - database
-      - db-seeder
+      database:
+        condition: service_healthy
+      db-seeder:
+        condition: service_completed_successfully
     networks:
       - socialmedia-net
+    volumes:
+      - model_cache:/app 
+      
 
-  # --------------------
   # Frontend (Streamlit)
-  # --------------------
   frontend:
     build:
       context: ./frontend
@@ -70,18 +75,18 @@ services:
       - "8501:8501"
     depends_on:
       - api
+      - database
     networks:
       - socialmedia-net
 
-# --------------------
+
 # Shared Network
-# --------------------
 networks:
   socialmedia-net:
     driver: bridge
 
-# --------------------
+
 # Docker-managed volumes
-# --------------------
 volumes:
-  socialmedia-mysql:
+  mysql_data:
+  model_cache:
