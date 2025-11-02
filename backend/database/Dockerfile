@@ -23,4 +23,4 @@ COPY . .
 EXPOSE 8001
 
 # Run the FastAPI app with Uvicorn when the container starts
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "create_tables:app", "--host", "0.0.0.0", "--port", "8001"]
