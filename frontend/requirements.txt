@@ -1,6 +1,7 @@
 streamlit
 pandas
 plotly
-mysql.connector
-datetime
-dotenv
+python-dotenv
+sqlalchemy
+pymysql
+cryptography
