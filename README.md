@@ -1,4 +1,4 @@
-# DSA3101 Social Media Bias Detection: EchoBreak
+# EchoBreak: Social Media Bias Detection for Reddit
 
 A comprehensive platform for detecting political bias in social media content and providing counter-recommendation to promote balanced information consumption. The system analyzes Reddit posts, tracks user bias patterns, and recommends diverse perspectives when bias thresholds are reached.
 
